@@ -232,6 +232,12 @@ llm = ChatAnthropic(
         verbose=True,
         streaming=True,
     ),
+	openai_gpt_4o=ChatOpenAI(
+        temperature=0.9,
+        model="gpt-4o",
+        verbose=True,
+        streaming=True,
+    ),
     pplx_sonar_medium_chat=ChatPerplexity(
         model="sonar-medium-chat", temperature=0.9, verbose=True, streaming=True
     ),
@@ -554,7 +560,7 @@ Context:
             }
             for _split in splits
         ],
-        config={"configurable": {"model": "rebyte_agent"}},
+        config={"configurable": {"model": "openai_gpt_4o"}},
     )
     return (
         "The contents of the first three search results are extracted as follows:\n"
@@ -599,7 +605,7 @@ Context:
             }
             for _split in splits
         ],
-        config={"configurable": {"model": "rebyte_agent"}},
+        config={"configurable": {"model": "openai_gpt_4o"}},
     )
     return "The content snippet obtained from the link is as follows:\n" + (
         "\n" + "#" * 70 + "\n"
@@ -647,7 +653,7 @@ Context:
             }
             for _split in splits
         ],
-        config={"configurable": {"model": "rebyte_agent"}},
+        config={"configurable": {"model": "openai_gpt_4o"}},
     )
     return (
         "The contents of the first three search results are extracted as follows:\n"

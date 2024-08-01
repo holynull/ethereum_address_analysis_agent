@@ -146,3 +146,5 @@ node_modules/
 test.json
 test.py
 test.md
+token_balance_distribution*
+daily_balance_changes*

@@ -26,6 +26,16 @@ from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
 from langchain_community.document_loaders import SpiderLoader
 import swifter
+import matplotlib
+
+matplotlib.use("Agg")  # 使用非交互后端
+import matplotlib.pyplot as plt
+import numpy as np
+import base64
+from io import BytesIO
+import uuid
+import matplotlib.dates as mdates
+
 
 load_dotenv(".env")
 
@@ -193,23 +203,24 @@ def get_address_labels(addresses: list[str]) -> str:
             QueryParameter.text_type(name="addresses", value=",".join(addresses)),
         ],
     )
-    results_df = dune.run_query_dataframe(query)
+    results_df = dune.run_query_dataframe(query=query, performance="large")
     if results_df.empty:
         results_df = pd.DataFrame([{"address": ad, "labels": ""} for ad in addresses])
     tag_df = pd.DataFrame(get_multiple_address_tags.invoke({"addresses": addresses}))
     results_df = results_df.merge(tag_df, on="address", how="left")
+
     # 定义合并函数
     def merge_labels_and_tags(row):
-        if pd.notna(row['tag']):
-            return row['labels'] + '[' + row['tag'] + ']'
+        if pd.notna(row["tag"]):
+            return row["labels"] + "[" + row["tag"] + "]"
         else:
-            return row['labels']
+            return row["labels"]
 
     # 应用合并函数
-    results_df['labels'] = results_df.apply(merge_labels_and_tags, axis=1)
+    results_df["labels"] = results_df.apply(merge_labels_and_tags, axis=1)
 
     # 删除 tag 列
-    results_df.drop(columns=['tag'], inplace=True)
+    results_df.drop(columns=["tag"], inplace=True)
     return results_df.to_json(orient="records")
 
 
@@ -409,8 +420,8 @@ def get_address_interact_with(address: str) -> str:
     # 4. 将时间格式化为 'yyyy-MM-dd HH:mm:ss' 格式的字符串
     formatted_time = yesterday.strftime("%Y-%m-%d %H:%M:%S")
     query = QueryBase(
-        name="eddie_get_erc20_transfer_of_address",
-        query_id=3924884,
+        name="eddie_address_interaction_with",
+        query_id=3957299,
         params=[
             QueryParameter.text_type(name="address", value=address),
             QueryParameter.text_type(name="min_time", value=formatted_time),
@@ -420,7 +431,7 @@ def get_address_interact_with(address: str) -> str:
     results_df = dune.run_query_dataframe(query)
     if not results_df.empty:
         r_arr = results_df.apply(
-            lambda row: f"Transfer {row['amount']} {row['symbol']} to {row['to']} at {row['block_time']}.",
+            lambda row: f"{row['tx_count']} transactions were made with address {row['to']} from {formatted_time}.",
             axis=1,
         ).tolist()
         # return results_df.to_json(orient="records")
@@ -430,28 +441,31 @@ def get_address_interact_with(address: str) -> str:
 
 
 @tool
-def get_addres_funds_movements_of(address: str, contract_address: str) -> str:
+def get_addres_funds_movements_of(
+    address: str, contract_address: str, sta_time: str, end_time: str
+) -> str:
     """
     This is useful when you need to get the token transfer of an address within 1 months.
     The parameter `address` must be complete a address.
     The parameter `contract_address` must be the erc20 token's contract address as the fund.
+    The parameters `sta_time` and `end_time` indicate the start time and end time in the format of yyyy-MM-dd HH:mm:ss.
     """
     # 1. 获取当前时间
-    now = datetime.now()
+    # now = datetime.now()
 
     # 2. 计算前一天的时间
-    yesterday = now - relativedelta(months=1)
+    # yesterday = now - relativedelta(months=1)
 
     # 4. 将时间格式化为 'yyyy-MM-dd HH:mm:ss' 格式的字符串
-    formatted_time = yesterday.strftime("%Y-%m-%d %H:%M:%S")
+    # formatted_time = yesterday.strftime("%Y-%m-%d %H:%M:%S")
     query = QueryBase(
         name="eddie_get_some_erc20_transfer_of_address",
         query_id=3940668,
         params=[
             QueryParameter.text_type(name="address", value=address),
             QueryParameter.text_type(name="contract_address", value=contract_address),
-            QueryParameter.text_type(name="min_time", value=formatted_time),
-            QueryParameter.text_type(name="N", value=500),
+            QueryParameter.text_type(name="min_time", value=sta_time),
+            QueryParameter.text_type(name="max_time", value=end_time),
         ],
     )
     results_df = dune.run_query_dataframe(query)
@@ -764,9 +778,9 @@ def get_token_dex_liquidity_in_3_month(addresses: list[str]) -> str:
 
 
 @tool
-def get_token_balances_of_address(address: str):
+def get_balances_of_address(address: str):
     """
-    Useful when you need to get the balance of all tokens on an address.
+    Useful when you need to get the balance of all tokens on an address and an image about token balance distribution in USD.
     """
 
     # 1. 获取当前时间
@@ -785,18 +799,138 @@ def get_token_balances_of_address(address: str):
             QueryParameter.text_type(name="wallet_address", value=address),
         ],
     )
-    results_df = dune.run_query_dataframe(query=query)
+    results_df = dune.run_query_dataframe(query=query, performance="large")
+    # 从数据中提取标签和余额
+    labels = results_df["token_symbol"].apply(lambda x: x).tolist()
+    sizes = (
+        results_df["balance_usd"]
+        .apply(lambda item: float(item) if item != "<nil>" else 0)
+        .tolist()
+    )
+
+    # 创建 explode 参数，增加一些偏移量以增强立体效果
+    explode = [0.1 if size > 0.05 * sum(sizes) else 0 for size in sizes]  # 只有当占比大于5%时才抬起
+
+    # 创建饼状图
+    plt.figure(figsize=(12, 8), dpi=80)
+    wedges, texts, autotexts = plt.pie(
+        sizes,
+        labels=[label if size > 0.05 * sum(sizes) else "" for label, size in zip(labels, sizes)],  # 只显示大于5%的标签
+        autopct=lambda p: f'{p:.1f}%' if p > 5 else '',  # 只显示大于5%的百分比
+        startangle=140,
+        explode=explode,
+        shadow=True,
+        textprops={'fontsize': 12},  # 设置字体大小
+        pctdistance=0.85  # 设置百分比文本的位置
+    )
+
+    # 删除连接线逻辑，保持饼图简单
+
+    # 设置图例，增加宽度和多行显示
+    plt.legend(
+        wedges, labels, title="Tokens", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1),
+        ncol=2, fontsize=10  # 设置图例的列数为2
+    ) 
+
+    plt.title("Token Balance Distribution in USD")
+    plt.axis("equal")  # 使饼状图是一个正圆
+
+    # 设置背景透明
+    plt.gca().patch.set_alpha(0.0)  # Set background to transparent
+
+    random_filename = f"token_balance_distribution_{uuid.uuid4()}.png"
+    plt.savefig(random_filename, format="png")
+    plt.close()
+
+    img_str = (
+        f"Description of Image: Token Balance Distribution in USD"
+        + "\n"
+        + f"Image Url:http://localhost:3002/{random_filename}"
+    )
     if not results_df.empty:
         r_arr = results_df.apply(
             lambda row: f"Token: {row['token_symbol']}\nContract address: {row['token_address']}\n"
             + f"Balance: {row['balance']} (USD: {row['balance_usd']} Price:${row['price_usd']})",
             axis=1,
         ).tolist()
-        result = extract_token_from_balances(results_df.to_json(orient="records"))
-        result["balances"] = f"## Balances of address {address}:\n" + "\n".join(r_arr)
-        return result
+        result = f"## Balances of address {address}:\n" + "\n".join(r_arr)
+        return result + "\n\n" + img_str
     else:
-        return {}
+        return "No Balances Found."
+
+
+@tool
+def get_token_balance_daily_of_address(address: str, token_address: str):
+    """
+    This is useful when you need to get daily balance data for a specified token on an address within 1 months.
+    """
+
+    # 1. 获取当前时间
+    now = datetime.now()
+
+    # 2. 计算前一天的时间
+    yesterday = now - relativedelta(months=1)
+
+    # 4. 将时间格式化为 'yyyy-MM-dd HH:mm:ss' 格式的字符串
+    formatted_time = yesterday.strftime("%Y-%m-%d %H:%M:%S")
+    query = QueryBase(
+        name="eddie_address_token_balances_daily",
+        query_id=3954430,
+        params=[
+            QueryParameter.text_type(name="min_time", value=formatted_time),
+            QueryParameter.text_type(name="address", value=address),
+            QueryParameter.text_type(name="token_address", value=token_address),
+        ],
+    )
+    df = dune.run_query_dataframe(query=query, performance="large")
+    # 将日期列转换为 datetime 对象
+    df["block_time"] = pd.to_datetime(df["block_time"])
+
+    # 按日期排序
+    df.sort_values(by="block_time", inplace=True)
+
+    # 绘制折线图
+    plt.figure(figsize=(12, 6))
+    plt.plot(
+        df["block_time"],
+        df["balance"],
+        color="skyblue",
+        marker="o",
+        linestyle="-",
+        linewidth=2,
+    )
+
+    symbol = df["token_symbol"].apply(lambda x: x).tolist()[0]
+
+    # 设置日期格式为 "Jan 1, 2024"
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter("%b %d, %Y"))
+    plt.subplots_adjust(bottom=0.2)
+
+    # 设置标题和标签
+    plt.title(f"Daily Balance Changes for {symbol} Token", fontsize=16)
+    plt.xlabel("Date", fontsize=14)
+    plt.ylabel(f"Balance ({symbol})", fontsize=14)
+    plt.xticks(rotation=45)
+    plt.grid()
+
+    # 显示图例
+    plt.legend(["Balance"], loc="upper left")
+    random_filename = f"daily_balance_changes_{uuid.uuid4()}.png"
+    plt.savefig(random_filename, format="png")
+    plt.close()
+    img_str = (
+        f"The Description of Image: Daily Balance Changes for {symbol} Token"
+        + "\n"
+        + f"Image Url:http://localhost:3002/{random_filename}"
+    )
+    if not df.empty:
+        r_arr = df.apply(
+            lambda row: f"The balance on {row['block_time']} is {row['balance']}.",
+            axis=1,
+        ).tolist()
+        result = f"Daily Balance Changes for {symbol} Token:" + "\n".join(r_arr)
+        return result + "\n\n" + img_str
+    return result
 
 
 # @tool
@@ -856,10 +990,11 @@ def extract_token_from_balances(data: str) -> dict:
 
 dune_tools = [
     get_address_labels,
-    get_token_balances_of_address,
+    get_balances_of_address,
+    get_token_balance_daily_of_address,
     top_10_erc20_transaction,
     get_funds_transfer_status_in_transaction,
     get_address_interact_with,
     get_addres_funds_movements_of,
-    get_eth_movements_of,
+    # get_eth_movements_of,
 ]

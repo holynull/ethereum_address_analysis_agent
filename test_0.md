@@ -1,44 +1,9 @@
-OpenAI Assistants API 的v2版本引入了一系列重大更新，旨在提高效率、增强灵活性并简化工具管理。以下是v2版本的主要更新内容，以及它们对开发web3 agent的潜在影响的探讨。此外，也将探讨langchain关于OpenAI assistants API的内容下架原因，以及如果langchain及时跟进这些更新，对web3 agent开发可能带来的新功能。
+```sql
+SELECT 
+    address,
+    array_agg(name) as labels
+FROM labels.addresses WHERE address in ({{addresses}}) AND blockchain='ethereum'
+GROUP BY address;
+```
 
-### OpenAI Assistants API v2主要更新内容：
-
-1. **增强的文件检索工具 (`file_search`)**: 支持并行查询、改进的重排序和查询重写，并能够处理多达10,000个文件，这是之前版本的500倍。
-
-2. **向量存储 (`vector_store`) 对象**: 一旦文件被添加到向量存储中，它们会自动被解析、分块，并嵌入，随时准备被检索。向量存储可以跨助手和线程使用，简化了文件管理和计费。
-
-3. **消息Token及历史限制**: 可以控制每次运行中使用的最大Token数，并设置每次运行使用的先前/最近消息数的限制。
-
-4. **`tool_choice`参数支持**: 允许在特定运行中强制使用特定工具（如`file_search`、`code_interpreter`或函数）。
-
-5. **创建助手角色的消息**: 可以创建具有助手角色的消息，以创建自定义的对话历史。
-
-6. **支持流式处理**: Assistants API现在支持流式处理，并在Node和Python SDK中添加了多个流式处理和轮询助手。
-
-7. **支持使用微调模型**: 目前，只支持gpt-3.5-turbo-0125的微调版本。
-
-### 对web3 agent开发的影响：
-
-1. **增强的文件处理和搜索能力**: 使用`file_search`和`vector_store`，web3 agent可以更高效地处理和搜索大量文档或数据文件，进而提高数据处理和知识检索的能力。
-
-2. **优化Token使用和成本管理**: 通过控制使用的Token数和历史消息数，开发者可以更有效地管理运行成本，适用于大规模部署的web3 agent。
-
-3. **定制化对话历史**: 利用创建助手角色的消息功能，开发者可以为web3 agent创建更丰富和定制化的对话历史，提升用户体验。
-
-4. **流式处理支持**: 对开发实时或需要即时响应的web3 agent尤为重要，如实时数据分析和交互式对话系统。
-
-### langchain关于Assistants API内容的下架原因及其意义：
-
-langchain可能下架了有关Assistants API的内容，是因为v2版本的更新需要时间进行整合和文档更新。这也可能表明langchain正在制定跟进最新API变化的计划。
-
-### 如果langchain跟上更新进度，web3 agent开发能实现的功能：
-
-1. **更高效的数据检索**: 借助增强的`file_search`工具和`vector_store`，web3 agent能够更有效地处理和检索大量数据，尤其适用于需管理大型文档库的场景。
-
-2. **成本优化**: 新API提供的Token和历史消息管理功能允许开发者更好地控制成本，使得大规模部署web3 agent变得更经济。
-
-3. **改善的用户交互**: 通过流式处理和定制对话历史的支持，web3 agent能够提供更流畅、更个性化的用户交互体验。
-
-4. **利用微调模型**: 能够使用特定领域微调的模型，将使web3 agent在特定领域（如法律、医疗或金融）提供更精确、更专业的咨询与服务。
-
-langchain准确跟进OpenAI Assistants API的更新，不仅能够确保其技术栈保持最新，还能为开发者提供更强大、更高效、成本优化的工具，以推动web3 agent的创新和部署。
-
+上面是一个dune上的查询，如何优化一下，提高查询速度？

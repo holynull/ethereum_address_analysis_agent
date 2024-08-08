@@ -539,7 +539,7 @@ def get_addres_how_much_funds_received(
     results_df = dune.run_query_dataframe(query)
     if not results_df.empty:
         r_list = results_df.apply(
-            lambda row: f"Recieved {row['amount']} {token_sybmol} from {row['from']}.",
+            lambda row: f"Recieved a total of {row['amount']} {token_sybmol} from the address {row['from']} through {row['cnt']} transactions.",
             axis=1,
         ).tolist()
         return "\n".join(r_list)
@@ -582,7 +582,7 @@ def get_addres_how_much_funds_transfered(
     results_df = dune.run_query_dataframe(query)
     if not results_df.empty:
         r_list = results_df.apply(
-            lambda row: f"Transfer {row['amount']} {token_sybmol} to {row['to']}.",
+            lambda row: f"Transferred a total of {row['amount']} {token_sybmol} to the address {row['to']} through {row['cnt']} transactions.",
             axis=1,
         ).tolist()
         return "\n".join(r_list)
@@ -682,7 +682,7 @@ def get_how_much_eth_transfered(
     results_df = dune.run_query_dataframe(query)
     if not results_df.empty:
         r_list = results_df.apply(
-            lambda row: f"Transfer {row['amount']} ETH to {row['to']}.",
+            lambda row: f"Transferred a total of {row['eth_value']} ETH to the address {row['to']} through {row['cnt']} transactions.",
             axis=1,
         ).tolist()
         return "\n".join(r_list)
@@ -721,8 +721,11 @@ def get_how_much_eth_recieved(
     )
     results_df = dune.run_query_dataframe(query)
     if not results_df.empty:
-        sum_value = sum(results_df["eth_value"])
-        return f"Recieved ETH: {sum_value}"
+        r_list = results_df.apply(
+            lambda row: f"Recieved a total of {row['eth_value']} from the address {row['from']} through {row['cnt']} transactions.",
+            axis=1,
+        ).tolist()
+        return "\n".join(r_list)
     else:
         return "No data found."
 
@@ -1231,8 +1234,8 @@ dune_tools = [
     get_token_balance_daily_of_address,
     get_funds_transfer_status_in_transaction,
     get_address_interact_with,
-    get_addres_funds_movements_of,
-    get_eth_movements_of,
+    # get_addres_funds_movements_of,
+    # get_eth_movements_of,
     get_addres_how_much_funds_received,
     get_addres_how_much_funds_transfered,
     get_how_much_eth_recieved,

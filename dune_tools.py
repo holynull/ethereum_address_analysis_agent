@@ -507,12 +507,13 @@ def get_addres_funds_movements_of(
 @tool
 def get_addres_how_much_funds_received(
     address: str,
+    token_sybmol: str,
     contract_address: str,
     sta_time: str,
     end_time: str,
 ) -> str:
     """
-    This is useful when you need to get how much the token received from other addresses.
+    This is useful when you need to get how much and where the address received the token from.
     The parameter `address` must be complete a address.
     The parameter `contract_address` must be the erc20 token's complete address.
     The parameters `sta_time` and `end_time` indicate the start time and end time in the format of yyyy-MM-dd HH:mm:ss.
@@ -533,18 +534,15 @@ def get_addres_how_much_funds_received(
             QueryParameter.text_type(name="contract_address", value=contract_address),
             QueryParameter.text_type(name="min_time", value=sta_time),
             QueryParameter.text_type(name="max_time", value=end_time),
-            QueryParameter.text_type(name="sort_by", value="block_time"),
-            QueryParameter.text_type(name="ascending", value="desc"),
         ],
     )
     results_df = dune.run_query_dataframe(query)
     if not results_df.empty:
-        sum_amount = sum(
-            results_df["amount"]
-            .apply(lambda item: float(item) if item != "<nil>" else 0)
-            .tolist()
-        )
-        return f"Received amount: {sum_amount}"
+        r_list = results_df.apply(
+            lambda row: f"Recieved {row['amount']} {token_sybmol} from {row['from']}.",
+            axis=1,
+        ).tolist()
+        return "\n".join(r_list)
     else:
         return "No data found."
 
@@ -558,7 +556,7 @@ def get_addres_how_much_funds_transfered(
     end_time: str,
 ) -> str:
     """
-    This is useful when you need to get how much and where the token transfered from the address.
+    This is useful when you need to get how much and where the address transfered the token to.
     The parameter `address` must be complete a address.
     The parameter `contract_address` must be the erc20 token's complete address.
     The parameters `sta_time` and `end_time` indicate the start time and end time in the format of yyyy-MM-dd HH:mm:ss.
@@ -659,7 +657,7 @@ def get_how_much_eth_transfered(
     end_time: str,
 ) -> str:
     """
-    This is useful when you need to get how much the ETH transfered from an address.
+    This is useful when you need to get how much and where the address transfered the ETH to.
     It's useful also when you need to get the transactions of the address.
     The parameters `sta_time` and `end_time` indicate the start time and end time in the format of yyyy-MM-dd HH:mm:ss.
     """
@@ -679,14 +677,15 @@ def get_how_much_eth_transfered(
             QueryParameter.text_type(name="address", value=address),
             QueryParameter.text_type(name="min_time", value=sta_time),
             QueryParameter.text_type(name="max_time", value=end_time),
-            QueryParameter.text_type(name="sort_by", value="block_time"),
-            QueryParameter.text_type(name="ascending", value="desc"),
         ],
     )
     results_df = dune.run_query_dataframe(query)
     if not results_df.empty:
-        sum_value = sum(results_df["eth_value"])
-        return f"Trasfered ETH: {sum_value}"
+        r_list = results_df.apply(
+            lambda row: f"Transfer {row['amount']} ETH to {row['to']}.",
+            axis=1,
+        ).tolist()
+        return "\n".join(r_list)
     else:
         return "No data found."
 
@@ -698,7 +697,7 @@ def get_how_much_eth_recieved(
     end_time: str,
 ) -> str:
     """
-    This is useful when you need to get how much the ETH recieved from other addresses.
+    This is useful when you need to get how much and where the address recieved ETH from.
     It's useful also when you need to get the transactions of the address.
     The parameters `sta_time` and `end_time` indicate the start time and end time in the format of yyyy-MM-dd HH:mm:ss.
     """

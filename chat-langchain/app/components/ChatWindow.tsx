@@ -242,7 +242,7 @@ export function ChatWindow(props: { conversationId: string }) {
 									var data = _chunk.data as object;
 									if ("output" in data) {
 										var output = eval('(' + data.output + ')');
-										sources = output.map((doc: Record<string, any>) => ({
+										sources = output.search_result.map((doc: Record<string, any>) => ({
 											url: doc.link,
 											title: doc.title,
 											img_src: doc.imageUrl,

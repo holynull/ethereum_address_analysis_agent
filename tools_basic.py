@@ -104,6 +104,16 @@ def getTokenMetadata(symbol: str) -> str:
 
 
 @tool
+def getLatestQuote(symbol: str) -> str:
+    """
+    Useful when you need get the latest quote of a token.
+    """
+    url = f"https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?symbol={symbol}"
+    response = requests.get(url, headers=headers)
+    return json.dumps(response.json())
+
+
+@tool
 def get_multiple_token_prices(addresses: list[str]):
     """
     Useful when you need get some cryptocurrency's latest price.
@@ -232,9 +242,15 @@ llm = ChatAnthropic(
         verbose=True,
         streaming=True,
     ),
-	openai_gpt_4o=ChatOpenAI(
+    openai_gpt_4o=ChatOpenAI(
         temperature=0.9,
         model="gpt-4o",
+        verbose=True,
+        streaming=True,
+    ),
+    openai_gpt_4o_mini=ChatOpenAI(
+        temperature=0.9,
+        model="gpt-4o-mini",
         verbose=True,
         streaming=True,
     ),
@@ -307,7 +323,7 @@ Question:{question}
     )
     query = chain_0.invoke(
         {"question": question},
-        config={"configurable": {"model": "openai_gpt_3_5_turbo_1106"}},
+        config={"configurable": {"model": "openai_gpt_4o_mini"}},
     )
     print(query)
     newsSearch = GoogleSerperAPIWrapper(type="news", tbs=query.tbs)
@@ -331,7 +347,8 @@ Question:{question}
         }
         for r in results
     ]
-    result_str = json.dumps(search_result)
+    re = {"question": question, "search_result": search_result}
+    result_str = json.dumps(re)
     return result_str
 
 
@@ -362,7 +379,7 @@ Question:{question}
     )
     query = chain_0.invoke(
         {"question": question},
-        config={"configurable": {"model": "openai_gpt_3_5_turbo_1106"}},
+        config={"configurable": {"model": "openai_gpt_4o_mini"}},
     )
     print(query)
     newsSearch = GoogleSerperAPIWrapper(type="search")
@@ -386,7 +403,8 @@ Question:{question}
         }
         for r in results
     ]
-    result_str = json.dumps(search_result)
+    re = {"question": question, "search_result": search_result}
+    result_str = json.dumps(re)
     return result_str
 
 
@@ -415,7 +433,7 @@ Question:{question}
     )
     query = chain_0.invoke(
         {"question": question},
-        config={"configurable": {"model": "openai_gpt_3_5_turbo_1106"}},
+        config={"configurable": {"model": "openai_gpt_4o_mini"}},
     )
     print(query)
     newsSearch = GoogleSerperAPIWrapper(type="places")
@@ -460,7 +478,7 @@ Question:{question}
     )
     query = chain_0.invoke(
         {"question": question},
-        config={"configurable": {"model": "openai_gpt_3_5_turbo_1106"}},
+        config={"configurable": {"model": "openai_gpt_4o_mini"}},
     )
     print(query)
     newsSearch = GoogleSerperAPIWrapper(type="images")
@@ -506,11 +524,11 @@ def getDocumentFromLink(
         html = [Document(clean_html)]
     html = filter_complex_metadata(html)
     html[0].metadata["source"] = ""
-    docs_text = h2tTransformer.transform_documents(html)
+    # docs_text = h2tTransformer.transform_documents(html)
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size, chunk_overlap=chunk_overlap
     )
-    _split = text_splitter.split_documents(docs_text)
+    _split = text_splitter.split_documents(html)
     splits = []
     if len(splits) == 0:
         splits = _split
@@ -523,8 +541,8 @@ def getDocumentFromLink(
 def summarizeRelevantContents(links: List[str], question: str) -> str:
     """
     Get relevant content from returned by `searchWebPageToAnswer`.
-    The parameter `links` should be top 3 links returned by `searchWebPageToAnswer`.
-    The parameter `question` is the same as the input question of `searchWebPageToAnswer`.
+    The parameter `links` should be top 5 links returned by `searchWebPageToAnswer`.
+    The parameter `question` is required. It should be a complete question which returned from `searchWebPageToAnswer`.
     """
     prompt_template = """Extract as much relevant content about the question as possible from the context below.
 
@@ -616,8 +634,8 @@ Context:
 def summarizeRelevantContentsNews(links: List[str], question: str) -> str:
     """
     Get relevant content from returned by `searchNewsToAnswer`.
-    The parameter `links` should be top 3 links returned by `searchNewsToAnswer`.
-    The parameter `question` is the same as the input question of `searchNewsToAnswer`.
+    The parameter `links` should be top 5 links returned by `searchNewsToAnswer`.
+    The parameter `question` is required. It should be a complete question which returned from `searchNewsToAnswer`.
     """
     prompt_template = """Extract as much relevant content about the question as possible from the context below.
 
@@ -979,76 +997,24 @@ from defillama_wrapper import (
 #     return getVolumeOfDex(question)
 
 
-tools_google = load_tools(["google-scholar", "google-finance"], llm=llm)
 from dune_tools import dune_tools
 
-tools = (
-    tools_google
-    + dune_tools
-    + [
-        searchWebPageToAnswer,
-        searchNewsToAnswer,
-        searchPlacesToAnswer,
-        searchImagesToAnswer,
-        summarizeRelevantContents,
-        summarizeRelevantContentsNews,
-        answerQuestionFromLinks,
-        # summarizeRelevantContents_2,
-        # summarizeRelevantContents_3,
-        # getHTMLFromURL,
-        # getHTMLFromURLs,
-        # getContentFromURL,
-        # getContentOfURL,
-        # getTVLOfDefiProject,
-        # fetchTVLOfDefiProject,
-        # getCirculatingVolumeOfStablecoin,
-        # fetchCirculatingVolumeOfStablecoin,
-        # getTotalCirculatingVolumeOfStablecoin,
-        # fetchTotalCirculatingVolumeOfStablecoin,
-        # getYieldsAndAPYOfPools,
-        # fetchYieldsAndAPYOfPools,
-        # getInfoOfBridges,
-        # fetchInfoOfBridges,
-        # getVolumeOfDex,
-        # fetchVolumeOfDex,
-        Tool(
-            name="CryptocurrencyLatestQuote",
-            func=cmc_last_quote_api.run,
-            description="""useful when you need get a cryptocurrency's latest quote. The input to this should be a single cryptocurrency's symbol.""",
-            coroutine=cmc_last_quote_api.arun,
-        ),
-        # Tool(
-        #     name="TrendingLatest",
-        #     func=cmc_trending_latest_api.run,
-        #     description="""useful when you need get a list of all trending cryptocurrency market data, determined and sorted by CoinMarketCap search volume. The input to this should be a complete question in English, and the question must have a ranking requirement, and the ranking cannot exceed 20.""",
-        #     coroutine=cmc_trending_latest_api.arun,
-        # ),
-        # Tool(
-        #     name="TrendingGainersAndLosers",
-        #     func=cmc_trending_gainers_losers_api.run,
-        #     description="""useful when you need get a list of all trending cryptocurrencies, determined and sorted by the largest price gains or losses. The input to this should be a complete question in English, and the question must have a ranking requirement, and the ranking cannot exceed 20.""",
-        #     coroutine=cmc_trending_gainers_losers_api.arun,
-        # ),
-        # Tool(
-        #     name="TrendingMostVisited",
-        #     func=cmc_trending_most_visited_api.run,
-        #     description="""useful when you need get a list of all trending cryptocurrency market data, determined and sorted by traffic to coin detail pages. The input to this should be a complete question in English, and the question must have a ranking requirement, and the ranking cannot exceed 20.""",
-        #     coroutine=cmc_trending_most_visited_api.arun,
-        # ),
-        # Tool(
-        #     name="MetaDataOfCryptocurrency",
-        #     func=cmc_metadata_api.run,
-        #     description="""useful when you need get all static metadata available for one or more cryptocurrencies. The input to this should be a complete question in English.""",
-        #     coroutine=cmc_metadata_api.arun,
-        # ),
-        getTokenMetadata,
-        Tool(
-            name="BuyOrSellSignal",
-            func=tradingview.buySellSignal,
-            description="""Useful when you need to know buy and sell signals for a cryptocurrency. The input to this should be a cryptocurrency's symbol.""",
-            coroutine=tradingview.abuySellSignal,
-        ),
-        arxiv_search,
-        arxiv_load,
-    ]
-)
+tools = [
+    searchWebPageToAnswer,
+    searchNewsToAnswer,
+    searchPlacesToAnswer,
+    searchImagesToAnswer,
+    summarizeRelevantContents,
+    summarizeRelevantContentsNews,
+    answerQuestionFromLinks,
+    getLatestQuote,
+    getTokenMetadata,
+    Tool(
+        name="BuyOrSellSignal",
+        func=tradingview.buySellSignal,
+        description="""Useful when you need to know buy and sell signals for a cryptocurrency. The input to this should be a cryptocurrency's symbol.""",
+        coroutine=tradingview.abuySellSignal,
+    ),
+    arxiv_search,
+    arxiv_load,
+] + dune_tools

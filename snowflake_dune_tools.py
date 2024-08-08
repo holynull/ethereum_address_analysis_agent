@@ -1,4 +1,5 @@
 import re
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 import os
 from dune_client.client import DuneClient
@@ -7,9 +8,18 @@ from dune_client.query import QueryBase
 from langchain.agents import tool
 import json
 from decimal import Decimal
+import requests
 from web3 import Web3
 import numpy as np
+from langchain_anthropic import ChatAnthropic
+from langchain_cohere import ChatCohere
+from langchain_mistralai import ChatMistralAI
+from langchain_core.prompts import PromptTemplate
+from langchain_openai import ChatOpenAI
+from langchain_core.runnables import ConfigurableField
 
+from langchain_core.output_parsers import StrOutputParser
+from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
@@ -19,10 +29,13 @@ import matplotlib
 matplotlib.use("Agg")  # 使用非交互后端
 import matplotlib.pyplot as plt
 import numpy as np
+import base64
+from io import BytesIO
 import uuid
 import matplotlib.dates as mdates
 from datetime import datetime
 import pytz
+from snowflake.snowpark import Session
 
 
 load_dotenv(".env")
@@ -560,25 +573,29 @@ def get_addres_how_much_funds_transfered(
     The parameter `contract_address` must be the erc20 token's complete address.
     The parameters `sta_time` and `end_time` indicate the start time and end time in the format of yyyy-MM-dd HH:mm:ss.
     """
-    # 1. 获取当前时间
-    # now = datetime.now()
-
-    # 2. 计算前一天的时间
-    # yesterday = now - relativedelta(months=1)
-
-    # 4. 将时间格式化为 'yyyy-MM-dd HH:mm:ss' 格式的字符串
-    # formatted_time = yesterday.strftime("%Y-%m-%d %H:%M:%S")
-    query = QueryBase(
-        name="eddie_get_address_erc20_token_transfered",
-        query_id=3964680,
-        params=[
-            QueryParameter.text_type(name="address", value=address),
-            QueryParameter.text_type(name="contract_address", value=contract_address),
-            QueryParameter.text_type(name="min_time", value=sta_time),
-            QueryParameter.text_type(name="max_time", value=end_time),
-        ],
+    with open("connections.json") as f:
+        connection_parameters = json.load(f)
+    session = Session.builder.configs(connection_parameters).create()
+    sql = """SELECT
+  "from",
+  "to",
+  sum(value) AS "amount"
+FROM
+  ETHEREUM_ONCHAIN_DATA.ERC20_ETHEREUM.EVT_TRANSFER transfers
+WHERE
+  "from" = ?
+  AND transfers.contract_address = ?
+  AND evt_block_time >= CAST(? AS timestamp)
+  AND evt_block_time <= CAST(? AS timestamp)
+group by
+  "from",
+  to
+ORDER BY
+  amount desc;"""
+    results_df = session.sql(
+        sql, parameter=[address, contract_address, sta_time, end_time]
     )
-    results_df = dune.run_query_dataframe(query)
+    session.close()
     if not results_df.empty:
         r_list = results_df.apply(
             lambda row: f"Transfer {row['amount']} {token_sybmol} to {row['to']}.",

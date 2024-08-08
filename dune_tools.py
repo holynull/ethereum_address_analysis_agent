@@ -717,8 +717,6 @@ def get_how_much_eth_recieved(
             QueryParameter.text_type(name="address", value=address),
             QueryParameter.text_type(name="min_time", value=sta_time),
             QueryParameter.text_type(name="max_time", value=end_time),
-            QueryParameter.text_type(name="sort_by", value="block_time"),
-            QueryParameter.text_type(name="ascending", value="desc"),
         ],
     )
     results_df = dune.run_query_dataframe(query)
@@ -1157,7 +1155,7 @@ def get_token_balance_daily_of_address(address: str, token_address: str):
         img_str = (
             f"The Description of Image: Daily Balance Changes for {symbol} Token"
             + "\n"
-            + f"Image Url:https://musse.ai/{random_filename}"
+            + f"Image Url:https://musse.ai/charts/{random_filename}"
         )
         if not df.empty:
             r_arr = df.apply(

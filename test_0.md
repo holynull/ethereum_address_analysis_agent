@@ -74,7 +74,9 @@ def get_balances_of_address(address: str):
             random_filename = f"token_balance_distribution_{uuid.uuid4()}.png"
             plt.savefig(random_filename, format="png")
             plt.close()
-
+            
+            # 上传文件到 S3 存储桶的 charts 文件夹
+            s3_client.upload_file(random_filename, 'musse.ai', f'charts/{random_filename}')
             img_str = (
                 f"Description of Image: Token Balance Distribution in USD"
                 + "\n"
@@ -99,6 +101,4 @@ def get_balances_of_address(address: str):
         return "No Balances Found."
 ```
 
-如何把生成的图片文件上传到musse.ai这个桶的charts文件中。
-
-我已经在aws linux的ec2服务器上安装完Nginx了。前端页面需要通过https://api.musse.ai/chat 访问服务器端接口，api.musse.ai需要指向http://localhost:8080。如何进行配置。
+如何把生成的图片文件上传到musse.ai这个桶的charts文件中，然后在本地删除掉这个文件。

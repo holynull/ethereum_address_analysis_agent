@@ -1065,6 +1065,7 @@ def get_balances_of_address(address: str):
             
             # 上传文件到 S3 存储桶的 charts 文件夹
             s3_client.upload_file(random_filename, 'musse.ai', f'charts/{random_filename}')
+            os.remove(random_filename)
             img_str = (
                 f"Description of Image: Token Balance Distribution in USD"
                 + "\n"
@@ -1152,6 +1153,7 @@ def get_token_balance_daily_of_address(address: str, token_address: str):
 
         # 上传文件到 S3 存储桶的 charts 文件夹
         s3_client.upload_file(random_filename, 'musse.ai', f'charts/{random_filename}')
+        os.remove(random_filename)
         
         img_str = (
             f"The Description of Image: Daily Balance Changes for {symbol} Token"

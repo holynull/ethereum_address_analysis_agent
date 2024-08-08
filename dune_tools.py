@@ -32,7 +32,8 @@ DUNE_API_KEY = os.getenv("DUNE_API_KEY")
 dune = DuneClient(api_key=DUNE_API_KEY)
 
 # 初始化 S3 客户端
-s3_client = boto3.client('s3')
+s3_client = boto3.client("s3")
+
 
 @tool
 def get_ethereum_symbol_info(symbol: str) -> str:
@@ -685,6 +686,16 @@ def get_how_much_eth_transfered(
             lambda row: f"Transferred a total of {row['eth_value']} ETH to the address {row['to']} through {row['cnt']} transactions.",
             axis=1,
         ).tolist()
+        if len(results_df) >= 500:
+            return (
+                "We have only returned the top 500 results due to the large number of query results. As following:\n"
+                + "\n".join(r_list)
+            )
+        if len(results_df) >= 500:
+            return (
+                "We have only returned the top 500 results due to the large number of query results. As following:\n"
+                + "\n".join(r_list)
+            )
         return "\n".join(r_list)
     else:
         return "No data found."
@@ -725,6 +736,11 @@ def get_how_much_eth_recieved(
             lambda row: f"Recieved a total of {row['eth_value']} from the address {row['from']} through {row['cnt']} transactions.",
             axis=1,
         ).tolist()
+        if len(results_df) >= 500:
+            return (
+                "We have only returned the top 500 results due to the large number of query results. As following:\n"
+                + "\n".join(r_list)
+            )
         return "\n".join(r_list)
     else:
         return "No data found."
@@ -1062,9 +1078,11 @@ def get_balances_of_address(address: str):
             random_filename = f"token_balance_distribution_{uuid.uuid4()}.png"
             plt.savefig(random_filename, format="png")
             plt.close()
-            
+
             # 上传文件到 S3 存储桶的 charts 文件夹
-            s3_client.upload_file(random_filename, 'musse.ai', f'charts/{random_filename}')
+            s3_client.upload_file(
+                random_filename, "musse.ai", f"charts/{random_filename}"
+            )
             os.remove(random_filename)
             img_str = (
                 f"Description of Image: Token Balance Distribution in USD"
@@ -1152,9 +1170,9 @@ def get_token_balance_daily_of_address(address: str, token_address: str):
         plt.close()
 
         # 上传文件到 S3 存储桶的 charts 文件夹
-        s3_client.upload_file(random_filename, 'musse.ai', f'charts/{random_filename}')
+        s3_client.upload_file(random_filename, "musse.ai", f"charts/{random_filename}")
         os.remove(random_filename)
-        
+
         img_str = (
             f"The Description of Image: Daily Balance Changes for {symbol} Token"
             + "\n"

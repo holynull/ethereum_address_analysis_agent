@@ -69,7 +69,7 @@ app.add_middleware(
 
 def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
 
-    system_message = ("""You are an expert in the Ethereum blockchain. When answering users' questions, please use the user's language.
+    system_message = """You are an expert in the Ethereum blockchain. When answering users' questions, please use the user's language.
 
 To begin, please obtain the current date and time first.
 
@@ -126,7 +126,6 @@ Additionally, when using either search tool:
 
 When analyzing related addresses, always utilize address labeling tools to identify and explain the labels of these addresses, providing context about the relevant projects, organizations, or individuals. Ensure that the analysis is thorough and comprehensive, addressing all relevant aspects. Additionally, include specific images or visual data representations generated from the analysis in the proper Markdown format.
 """
-    )
 
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -210,18 +209,22 @@ When analyzing related addresses, always utilize address labeling tools to ident
     return executor
 
 
-llm_agent = ChatAnthropic(
-    model="claude-3-opus-20240229",
-    # max_tokens=,
+llm_agent = ChatOpenAI(
     temperature=0.9,
-    # anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "not_provided"),
-    streaming=True,
+    model="gpt-4o",
     verbose=True,
+    streaming=True,
 ).configurable_alternatives(  # This gives this field an id
     # When configuring the end runnable, we can then use this id to configure this field
     ConfigurableField(id="llm"),
     # default_key="openai_gpt_4_turbo_preview",
-    default_key="anthropic_claude_3_opus",
+    default_key="openai_gpt_4o",
+    anthropic_claude_3_opus=ChatOpenAI(
+        temperature=0.9,
+        model="gpt-4o",
+        verbose=True,
+        streaming=True,
+    ),
     openai_gpt_3_5_turbo_1106=ChatOpenAI(
         model="gpt-3.5-turbo-1106",
         verbose=True,
@@ -231,12 +234,6 @@ llm_agent = ChatAnthropic(
     openai_gpt_4_turbo_preview=ChatOpenAI(
         temperature=0.9,
         model="gpt-4-turbo-preview",
-        verbose=True,
-        streaming=True,
-    ),
-    openai_gpt_4o=ChatOpenAI(
-        temperature=0.9,
-        model="gpt-4o",
         verbose=True,
         streaming=True,
     ),

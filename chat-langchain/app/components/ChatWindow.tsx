@@ -324,7 +324,7 @@ export function ChatWindow(props: { conversationId: string }) {
 					mb={1}
 					color={"white"}
 				>
-					🍺 Eddie's Assistant 🥩
+					🍺 Ethereum Address Analysis 🥩
 				</Heading>
 				<Heading
 					fontSize="xl"
@@ -347,14 +347,14 @@ export function ChatWindow(props: { conversationId: string }) {
 							}}
 							width={"240px"}
 						>
-							<option value="anthropic_claude_3_opus">Anthropic-Claude-3-Opus</option>
-							<option value="openai_gpt_4_turbo_preview">GPT-4-Turbo</option>
+							{/* <option value="anthropic_claude_3_opus">Anthropic-Claude-3-Opus</option> */}
+							{/* <option value="openai_gpt_4_turbo_preview">GPT-4-Turbo</option> */}
 							<option value="openai_gpt_4o">GPT-4o</option>
 							<option value="openai_gpt_4o_mini">GPT-4o-mini</option>
-							<option value="openai_gpt_3_5_turbo_1106">GPT-3.5-Turbo</option>
-							<option value="pplx_sonar_medium_chat">PPLX_sonar_medium_chat</option>
-							<option value="mistral_large">Mistral-Large</option>
-							<option value="command_r_plus">Command R+</option>
+							{/* <option value="openai_gpt_3_5_turbo_1106">GPT-3.5-Turbo</option> */}
+							{/* <option value="pplx_sonar_medium_chat">PPLX_sonar_medium_chat</option> */}
+							{/* <option value="mistral_large">Mistral-Large</option> */}
+							{/* <option value="command_r_plus">Command R+</option> */}
 						</Select>
 					</div>
 				</div>

@@ -23,13 +23,16 @@ import uuid
 import matplotlib.dates as mdates
 from datetime import datetime
 import pytz
+import boto3
 
 
 load_dotenv(".env")
 
 DUNE_API_KEY = os.getenv("DUNE_API_KEY")
-dune = DuneClient(api_key=DUNE_API_KEY, performance="community")
+dune = DuneClient(api_key=DUNE_API_KEY)
 
+# 初始化 S3 客户端
+s3_client = boto3.client('s3')
 
 @tool
 def get_ethereum_symbol_info(symbol: str) -> str:
@@ -1059,11 +1062,13 @@ def get_balances_of_address(address: str):
             random_filename = f"token_balance_distribution_{uuid.uuid4()}.png"
             plt.savefig(random_filename, format="png")
             plt.close()
-
+            
+            # 上传文件到 S3 存储桶的 charts 文件夹
+            s3_client.upload_file(random_filename, 'musse.ai', f'charts/{random_filename}')
             img_str = (
                 f"Description of Image: Token Balance Distribution in USD"
                 + "\n"
-                + f"Image Url:http://localhost:3002/{random_filename}"
+                + f"Image Url:https://musse.ai/charts/{random_filename}"
             )
             r_arr = results_df.apply(
                 lambda row: f"Token: {row['token_symbol']}\nContract address: {row['token_address']}\n"
@@ -1144,10 +1149,14 @@ def get_token_balance_daily_of_address(address: str, token_address: str):
         random_filename = f"daily_balance_changes_{uuid.uuid4()}.png"
         plt.savefig(random_filename, format="png")
         plt.close()
+
+        # 上传文件到 S3 存储桶的 charts 文件夹
+        s3_client.upload_file(random_filename, 'musse.ai', f'charts/{random_filename}')
+        
         img_str = (
             f"The Description of Image: Daily Balance Changes for {symbol} Token"
             + "\n"
-            + f"Image Url:http://localhost:3002/{random_filename}"
+            + f"Image Url:https://musse.ai/{random_filename}"
         )
         if not df.empty:
             r_arr = df.apply(

@@ -191,6 +191,8 @@ export function ChatWindow(props: { conversationId: string }) {
 									var aichunk = data.chunk as AIMessageChunk;
 									if (typeof (aichunk.content) == "string")
 										accumulatedMessage += aichunk.content.toString();
+									else if (Array.isArray(aichunk.content) && aichunk.content[0] && "text" in aichunk.content[0])
+										accumulatedMessage += aichunk.content[0]['text'];
 									else
 										console.log(_chunk)
 								}
@@ -350,6 +352,7 @@ export function ChatWindow(props: { conversationId: string }) {
 						>
 							{/* <option value="anthropic_claude_3_opus">Anthropic-Claude-3-Opus</option> */}
 							{/* <option value="openai_gpt_4_turbo_preview">GPT-4-Turbo</option> */}
+							<option value="anthropic_claude_3_5_sonnet">Anthropic-Claude-3.5-Sonnet</option>
 							<option value="openai_gpt_4o">GPT-4o</option>
 							<option value="openai_gpt_4o_mini">GPT-4o-mini</option>
 							{/* <option value="openai_gpt_3_5_turbo_1106">GPT-3.5-Turbo</option> */}

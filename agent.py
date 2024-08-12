@@ -3,19 +3,12 @@ import sys
 from fastapi import FastAPI
 from dotenv import load_dotenv
 
-from my_langchain_anthropic.experimental import ChatAnthropicTools
 from langchain_anthropic import ChatAnthropic
 from langchain_openai import ChatOpenAI
 from langchain_community.chat_models import ChatPerplexity
 from langchain_mistralai import ChatMistralAI
 from langchain_cohere import ChatCohere
 
-# from callback import AgentCallbackHandler
-# from langchain.callbacks.manager import AsyncCallbackManager
-from datetime import datetime
-
-
-# from langsmith import Client
 from fastapi.middleware.cors import CORSMiddleware
 
 from langchain.agents import AgentExecutor
@@ -23,26 +16,13 @@ from langchain_core.prompts import (
     ChatPromptTemplate,
     MessagesPlaceholder,
 )
-from datetime import datetime
-from langchain_core.utils.function_calling import convert_to_openai_function
-from langchain_core.utils.function_calling import convert_to_openai_tool
-from langchain.agents.format_scratchpad.openai_tools import (
-    format_to_openai_tool_messages,
-)
-from anthropic_tools import (
-    AnthropicToolsAgentOutputParser,
-    format_to_anthropic_tool_messages,
-)
-from langchain.agents.output_parsers.openai_tools import OpenAIToolsAgentOutputParser
 
 # from langchain.agents.output_parsers import JSONAgentOutputParser
 from langchain_core.runnables import ConfigurableField
 from langchain_core.runnables import Runnable
 
 
-from langchain import hub
 from tools_basic import tools
-from eddie_tools import getHTMLOfURL
 
 if getattr(sys, "frozen", False):
     script_location = Path(sys.executable).parent.resolve()
@@ -96,7 +76,7 @@ When asked to analyze an Ethereum address or query for recent data, follow these
    c. The current value of these holdings.
    d. Any significant changes in holdings over time.
    e. The potential risks and benefits associated with holding these tokens.
-   f. A chart depicting the distribution of token balances.
+   f. A chart depicting the distribution of token balances. Include the image using the following Markdown format: ![Token Distribution Chart](image URL)
 
 8. **Historical Activity Analysis**: Examine the historical token holdings and transaction volume associated with this address.
 
@@ -124,7 +104,8 @@ Additionally, when using either search tool:
 - Summarize findings from the search results, highlighting key points, and provide proper citations where applicable.
 - Ensure that the responses are clear, concise, and relevant to the user's question.
 
-When analyzing related addresses, always utilize address labeling tools to identify and explain the labels of these addresses, providing context about the relevant projects, organizations, or individuals. Ensure that the analysis is thorough and comprehensive, addressing all relevant aspects. Additionally, include specific images or visual data representations generated from the analysis in the proper Markdown format.
+When analyzing related addresses, always utilize address labeling tools to identify and explain the labels of these addresses, providing context about the relevant projects, organizations, or individuals. Ensure that the analysis is thorough and comprehensive, addressing all relevant aspects. Additionally, include specific images or visual data representations generated from the analysis in the proper Markdown format:
+![Image Title](image URL)
 """
 
     prompt = ChatPromptTemplate.from_messages(
@@ -139,69 +120,7 @@ When analyzing related addresses, always utilize address labeling tools to ident
         ]
     )
 
-    # from langchain.tools.render import render_text_description
-    # from langchain_core.runnables import RunnablePassthrough
-    # from langchain.agents.format_scratchpad import format_log_to_str
-    # from langchain.agents.output_parsers import ReActSingleInputOutputParser
-
-    # react_prompt = hub.pull("hwchase17/react-chat")
-    # react_prompt = react_prompt.partial(
-    #     tools=render_text_description(list(tools)),
-    #     tool_names=", ".join([t.name for t in tools]),
-    # )
-    # openai_agent = (
-    #     {
-    #         "input": lambda x: x["input"],
-    #         "agent_scratchpad": lambda x: format_to_openai_tool_messages(
-    #             x["intermediate_steps"]
-    #         ),
-    #         "chat_history": lambda x: x["chat_history"],
-    #     }
-    #     | prompt
-    #     # | prompt_trimmer # See comment above.
-    #     | llm_agent.bind(tools=[convert_to_openai_tool(tool) for tool in tools])
-    #     | OpenAIToolsAgentOutputParser()
-    # )
-    # anthropic_agent = (
-    #     {
-    #         "input": lambda x: x["input"],
-    #         "agent_scratchpad": lambda x: format_to_anthropic_tool_messages(
-    #             x["intermediate_steps"]
-    #         ),
-    #         "chat_history": lambda x: x["chat_history"],
-    #     }
-    #     | prompt
-    #     # | prompt_trimmer # See comment above.
-    #     | llm_agent.bind(tools=[convert_to_openai_function(tool) for tool in tools])
-    #     | AnthropicToolsAgentOutputParser()
-    # )
-    # react_agent = (
-    #     # {
-    #     #     "input": lambda x: x["input"],
-    #     #     "agent_scratchpad": lambda x: format_log_to_str(
-    #     #         x["intermediate_steps"]
-    #     #     ),
-    #     #     "chat_history": lambda x: x["chat_history"],
-    #     # }
-    #     RunnablePassthrough.assign(
-    #         agent_scratchpad=lambda x: format_log_to_str(x["intermediate_steps"]),
-    #     )
-    #     | react_prompt
-    #     | llm_agent.bind(stop=["\nObservation"])
-    #     | ReActSingleInputOutputParser()
-    # )
-    # agent = anthropic_agent.configurable_alternatives(
-    #     which=ConfigurableField("llm"),
-    #     default_key="anthropic_claude_3_opus",
-    #     openai_gpt_4_turbo_preview=openai_agent,
-    #     openai_gpt_3_5_turbo_1106=openai_agent,
-    #     pplx_sonar_medium_chat=react_agent,
-    #     mistral_large=react_agent,
-    #     command_r_plus=react_agent,
-    # )
-    # llm_with_tools = llm_agent.bind_tools(tools=tools)
-
-    from custom_agent_excutor import CustomAgentExecutor, CustomToolCallingAgentExecutor
+    from custom_agent_excutor import CustomToolCallingAgentExecutor
 
     executor = CustomToolCallingAgentExecutor(
         llm=llm_agent, prompts=prompt, tools=tools
@@ -209,17 +128,28 @@ When analyzing related addresses, always utilize address labeling tools to ident
     return executor
 
 
-llm_agent = ChatOpenAI(
+llm_agent = ChatAnthropic(
+    model="claude-3-5-sonnet-20240620",
+    # max_tokens=,
     temperature=0.9,
-    model="gpt-4o",
-    verbose=True,
+    # anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "not_provided"),
     streaming=True,
+    stream_usage=True,
+    verbose=True,
 ).configurable_alternatives(  # This gives this field an id
     # When configuring the end runnable, we can then use this id to configure this field
     ConfigurableField(id="llm"),
     # default_key="openai_gpt_4_turbo_preview",
-    default_key="openai_gpt_4o",
-    anthropic_claude_3_opus=ChatOpenAI(
+    default_key="anthropic_claude_3_5_sonnet",
+    anthropic_claude_3_opus=ChatAnthropic(
+        model="claude-3-opus-20240229",
+        # max_tokens=,
+        temperature=0.9,
+        # anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "not_provided"),
+        streaming=True,
+        verbose=True,
+    ),
+    openai_gpt_4o=ChatOpenAI(
         temperature=0.9,
         model="gpt-4o",
         verbose=True,

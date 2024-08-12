@@ -1085,7 +1085,7 @@ def get_balances_of_address(address: str):
             )
             os.remove(random_filename)
             img_str = (
-                f"Description of Image: Token Balance Distribution in USD"
+                f"Below is the URL of the balance distribution chart. The title of the chart is: Token Balance Distribution in USD."
                 + "\n"
                 + f"Image Url:https://musse.ai/charts/{random_filename}"
             )
@@ -1174,7 +1174,7 @@ def get_token_balance_daily_of_address(address: str, token_address: str):
         os.remove(random_filename)
 
         img_str = (
-            f"The Description of Image: Daily Balance Changes for {symbol} Token"
+            f"Below is the URL for the daily balance change chart. The title of the chart is: Daily Balance Changes for {symbol} Token"
             + "\n"
             + f"Image Url:https://musse.ai/charts/{random_filename}"
         )

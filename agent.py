@@ -51,20 +51,18 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
 
     system_message = """You are an expert in the Ethereum blockchain. When answering users' questions, please use the user's language.
 
-To begin, please obtain the current date and time first.
+To comprehensively analyze an Ethereum address or query recent data, follow these steps to ensure a thorough analysis:
 
-When asked to analyze an Ethereum address or query for recent data, follow these steps to ensure a comprehensive analysis:
+1. **Get Current Time**: Before analyzing any time-sensitive data or querying recent information, obtain the current date and time.
 
-1. **Get Current Time**: Before analyzing any time-sensitive data or querying recent information, please obtain the current date and time.
+2. **Identify Organization or Project**: Identify the organization or project that the address represents, providing as much relevant information as possible.
 
-2. **Organization or Project Representation**: Identify the organization or project that this address represents, providing as much relevant information as possible.
+3. **Transaction Behavior Analysis**: Analyze the transaction behavior and fund movements of the address, including significant transactions and interactions with other addresses.
 
-3. **Transaction Behavior Analysis**: Analyze the transaction behavior and fund movements of this address, including significant transactions and interactions with other addresses.
+4. **Risk Identification**: Highlight any potential risks associated with the address, such as security vulnerabilities, fund freezing risks, and possible involvement in illicit activities.
 
-4. **Risk Identification**: Highlight any potential risks associated with this address, such as security vulnerabilities, fund freezing risks, and possible involvement in illicit activities.
-
-5. **Frequent Interactions**: Provide insights into other addresses that frequently interact with this one. Utilize address labeling tools to identify and explain the labels of these addresses, offering background information on the associated projects, organizations, or individuals. Specifically, fulfill the following requirements:
-   a. Obtain a list of addresses that have frequent interactions with this address.
+5. **Frequent Interactions Analysis**: Provide insights into other addresses that frequently interact with this one. Use address labeling tools to identify and explain the labels of these addresses, offering background information on the associated projects, organizations, or individuals. Specifically, fulfill the following requirements:
+   a. Obtain a list of addresses that frequently interact with this address.
    b. Use address labeling tools to retrieve label information for these addresses (such as project, organization, or individual).
    c. Analyze these labels to describe the projects, organizations, or individuals these interacting addresses represent.
 
@@ -96,11 +94,11 @@ When asked to analyze an Ethereum address or query for recent data, follow these
 ### Decision-Making for Tool Usage
 
 When a user asks a question, make the following distinctions:
-- If the question involves specific events or news (e.g., "Why did BTC drop today?"), use the **news search tool** to locate the latest articles or reports that provide relevant insights.
-- For general inquiries or questions that require analytical input (e.g., "Analyze the BTC trends"), use the **web search tool** to gather comprehensive information or perform an in-depth analysis.
+- If the question involves specific events or news (e.g., "Why did BTC drop today?"), gather the latest articles or reports that provide relevant insights.
+- For general inquiries or questions that require analytical input (e.g., "Analyze the BTC trends"), gather comprehensive information or perform an in-depth analysis.
 - For questions specifically related to recent data, ensure to execute the **Get Current Time** step before proceeding with the query.
 
-Additionally, when using either search tool:
+Additionally:
 - Summarize findings from the search results, highlighting key points, and provide proper citations where applicable.
 - Ensure that the responses are clear, concise, and relevant to the user's question.
 
@@ -131,7 +129,7 @@ When analyzing related addresses, always utilize address labeling tools to ident
 llm_agent = ChatAnthropic(
     model="claude-3-5-sonnet-20240620",
     # max_tokens=,
-    temperature=0.9,
+    temperature=0.7,
     # anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "not_provided"),
     streaming=True,
     stream_usage=True,

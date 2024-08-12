@@ -58,7 +58,7 @@ export function ChatWindow(props: { conversationId: string }) {
 	const [input, setInput] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [llm, setLlm] = useState(
-		searchParams.get("llm") ?? "anthropic_claude_3_opus",
+		searchParams.get("llm") ?? "anthropic_claude_3_5_sonnet",
 	);
 	const [processingTip, setProcessingTip] = useState("Please input your question.")
 
@@ -191,8 +191,14 @@ export function ChatWindow(props: { conversationId: string }) {
 									var aichunk = data.chunk as AIMessageChunk;
 									if (typeof (aichunk.content) == "string")
 										accumulatedMessage += aichunk.content.toString();
-									else if (Array.isArray(aichunk.content) && aichunk.content[0] && "text" in aichunk.content[0])
-										accumulatedMessage += aichunk.content[0]['text'];
+									else if (Array.isArray(aichunk.content) && aichunk.content[0] && "text" in aichunk.content[0]) {
+										var c_t = aichunk.content[0]['text'] as string;
+										// const regex = /^<thinking>.*<\/thinking>$/;
+										// if (!regex.test(c_t))
+										accumulatedMessage += c_t;
+										// else
+										// 	console.log(c_t)
+									}
 									else
 										console.log(_chunk)
 								}

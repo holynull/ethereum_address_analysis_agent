@@ -765,7 +765,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 
-driver_path = "chromedriver-mac-x64/chromedriver"
+driver_path = "chromedriver-linux64/chromedriver"
 service = Service(executable_path=driver_path)
 # 创建ChromeOptions对象
 chrome_options = Options()

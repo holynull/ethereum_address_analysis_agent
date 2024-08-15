@@ -20,6 +20,7 @@ origins = [
     "http://localhost",
     "http://localhost:3000",
     "http://192.168.3.6:3000",
+    "http://musse.ai",
 ]
 app = FastAPI()
 app.add_middleware(

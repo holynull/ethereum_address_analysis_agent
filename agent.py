@@ -128,7 +128,7 @@ When analyzing related addresses, always utilize address labeling tools to ident
 
 llm_agent = ChatAnthropic(
     model="claude-3-5-sonnet-20240620",
-    # max_tokens=,
+    max_tokens=4096,
     temperature=0.9,
     # anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "not_provided"),
     streaming=True,

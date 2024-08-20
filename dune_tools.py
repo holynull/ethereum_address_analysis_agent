@@ -228,7 +228,7 @@ def get_funds_transfer_status_in_transaction(tx_hash: str) -> str:
     try:
         transaction = ethers.eth.get_transaction(tx_hash)
     except Exception as e:
-        return e
+        return json.dump({"exception": e})
     # RPC请求获取交易的trace
     trace_call = {
         "jsonrpc": "2.0",

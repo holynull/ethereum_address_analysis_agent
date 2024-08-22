@@ -246,16 +246,32 @@ export function ChatWindow(props: { conversationId: string }) {
 							// 		}
 							// 	}
 							// }
+							if ("name" in _chunk && _chunk.name == 'search') {
+								if ("data" in _chunk) {
+									var data = _chunk.data as object;
+									if ("output" in data) {
+										var _output = data.output as Array<any>
+										sources = _output.map((doc: Record<string, any>) => ({
+											url: doc.value.url,
+											title: doc.value.title,
+											img_src: doc.value.imageUrl,
+										}));
+									}
+								}
+							}
 							if ("name" in _chunk && (_chunk.name == "searchWebPageToAnswer" || _chunk.name == "searchNewsToAnswer")) {
 								if ("data" in _chunk) {
 									var data = _chunk.data as object;
 									if ("output" in data) {
-										var output = eval('(' + data.output + ')');
-										sources = output.search_result.map((doc: Record<string, any>) => ({
-											url: doc.link,
-											title: doc.title,
-											img_src: doc.imageUrl,
-										}));
+										var output = eval('(' + data.output + ')') as object;
+										if ("search_result" in output) {
+											var search_result = output.search_result as Array<any>
+											sources = search_result.map((doc: Record<string, any>) => ({
+												url: doc.link,
+												title: doc.title,
+												img_src: doc.imageUrl,
+											}));
+										}
 									}
 								}
 							}

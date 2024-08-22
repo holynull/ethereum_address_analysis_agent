@@ -850,171 +850,29 @@ async def getHTMLFromURLs(urls: list[str]) -> str:
     return result
 
 
-from defillama_wrapper import (
-    DefiLLamaWrapTVLofPtotocols,
-    DefiLLamaWrapCirculatingVolumeOfStablecoins,
-    DefiLLamaWrapTotalCirculatingVolumeOfStablecoins,
-    DefiLLamaWrapYeildsAPYOfPools,
-)
-
-# tvlPotocols = DefiLLamaWrapTVLofPtotocols()
-# cvOfSc = DefiLLamaWrapCirculatingVolumeOfStablecoins()
-# tcvOfSc = DefiLLamaWrapTotalCirculatingVolumeOfStablecoins()
-# apyOfPools = DefiLLamaWrapYeildsAPYOfPools()
-
-# @tool
-# def getTVLOfDefiProject(question: str) -> str:
-#     """ "useful when you need get TVL and info of defi project. The input to this should be a complete question about tvl."""
-#     # agent = tvlPotocols.create_agent()
-#     agent = tvlPotocols.create_agent().with_config(
-#         {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
-#     )
-#     excutor = AgentExecutor(
-#         agent=agent,
-#         tools=tvlPotocols.tools,
-#         verbose=True,
-#     )
-#     result = excutor.invoke({"input": question})
-#     return result["output"]
-
-# @tool
-# def fetchTVLOfDefiProject(question: str) -> str:
-#     """ "useful when you need fetch TVL and info of defi project."""
-#     tvlPotocols.fetch()
-#     return getTVLOfDefiProject(question)
-
-# @tool
-# def getCirculatingVolumeOfStablecoin(question: str) -> str:
-#     """ "useful when you need get circulating volume of stablecoin. The input to this should be a complete question about circulating volume."""
-#     # agent = tvlPotocols.create_agent()
-#     agent = cvOfSc.create_agent().with_config(
-#         {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
-#     )
-#     excutor = AgentExecutor(
-#         agent=agent,
-#         tools=cvOfSc.tools,
-#         verbose=True,
-#     )
-#     result = excutor.invoke({"input": question})
-#     return result["output"]
-
-# @tool
-# def fetchCirculatingVolumeOfStablecoin(question: str) -> str:
-#     """ "useful when you need fetch Circulating Volume of stablecoin."""
-#     cvOfSc.fetch()
-#     return getCirculatingVolumeOfStablecoin(question)
-
-# @tool
-# def getTotalCirculatingVolumeOfStablecoin(question: str) -> str:
-#     """ "useful when you need get the volume of fait currency pegged to the chain. The input to this should be a complete question about volume of fait currency pegged."""
-#     # agent = tvlPotocols.create_agent()
-#     agent = tcvOfSc.create_agent().with_config(
-#         {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
-#     )
-#     excutor = AgentExecutor(
-#         agent=agent,
-#         tools=tcvOfSc.tools,
-#         verbose=True,
-#     )
-#     result = excutor.invoke({"input": question})
-#     return result["output"]
-
-# @tool
-# def fetchTotalCirculatingVolumeOfStablecoin(question: str) -> str:
-#     """ "useful when you need fetch the volume of fait currency pegged to."""
-#     tcvOfSc.fetch()
-#     return getTotalCirculatingVolumeOfStablecoin(question)
-
-# @tool
-# def getYieldsAndAPYOfPools(question: str) -> str:
-#     """ "useful when you need get yields or APY of defi pools. The input to this should be a complete question about yields or APY."""
-#     # agent = tvlPotocols.create_agent()
-#     agent = apyOfPools.create_agent().with_config(
-#         {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
-#     )
-#     excutor = AgentExecutor(
-#         agent=agent,
-#         tools=apyOfPools.tools,
-#         verbose=True,
-#     )
-#     result = excutor.invoke({"input": question})
-#     return result["output"]
-
-# @tool
-# def fetchYieldsAndAPYOfPools(question: str) -> str:
-#     """useful when you need fetch yields or APY of defi pools."""
-#     apyOfPools.fetch()
-#     return getYieldsAndAPYOfPools(question)
-
-# from defillama_wrapper import DefiLLamaWrapInfoOfBridges
-
-# infoOfBridges = DefiLLamaWrapInfoOfBridges()
-
-# @tool
-# def getInfoOfBridges(question: str) -> str:
-#     """useful when you need get info of a cross-chain bridges. The input to this should be a complete question about cross-chain bridge."""
-#     # agent = tvlPotocols.create_agent()
-#     agent = infoOfBridges.create_agent().with_config(
-#         {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
-#     )
-#     excutor = AgentExecutor(
-#         agent=agent,
-#         tools=infoOfBridges.tools,
-#         verbose=True,
-#     )
-#     result = excutor.invoke({"input": question})
-#     return result["output"]
-
-# @tool
-# def fetchInfoOfBridges(question: str) -> str:
-#     """useful when you need fetch info of a cross-chain bridges."""
-#     infoOfBridges.fetch()
-#     return getInfoOfBridges(question)
-
-# from defillama_wrapper import DefiLLamaWrapVolumeOfDex
-
-# vOfDex = DefiLLamaWrapVolumeOfDex()
-
-# @tool
-# def getVolumeOfDex(question: str) -> str:
-#     """useful when you need get volume of a Dex. The input to this should be a complete question about dex's volume."""
-#     # agent = tvlPotocols.create_agent()
-#     agent = vOfDex.create_agent().with_config(
-#         {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
-#     )
-#     excutor = AgentExecutor(
-#         agent=agent,
-#         tools=vOfDex.tools,
-#         verbose=True,
-#     )
-#     result = excutor.invoke({"input": question})
-#     return result["output"]
-
-# @tool
-# def fetchVolumeOfDex(question: str) -> str:
-#     """useful when you need fetch volume of a dex."""
-#     vOfDex.fetch()
-#     return getVolumeOfDex(question)
-
-
 from dune_tools import dune_tools
+from exa_tools import tools as exa_tools
 
-tools = [
-    searchWebPageToAnswer,
-    searchNewsToAnswer,
-    searchPlacesToAnswer,
-    searchImagesToAnswer,
-    summarizeRelevantContents,
-    summarizeRelevantContentsNews,
-    answerQuestionFromLinks,
-    getLatestQuote,
-    getTokenMetadata,
-    Tool(
-        name="BuyOrSellSignal",
-        func=tradingview.buySellSignal,
-        description="""Useful when you need to know buy and sell signals for a cryptocurrency. The input to this should be a cryptocurrency's symbol.""",
-        coroutine=tradingview.abuySellSignal,
-    ),
-    arxiv_search,
-    arxiv_load,
-] + dune_tools
+tools = (
+    exa_tools
+    + [
+        # searchWebPageToAnswer,
+        # searchNewsToAnswer,
+        # searchPlacesToAnswer,
+        # searchImagesToAnswer,
+        # summarizeRelevantContents,
+        # summarizeRelevantContentsNews,
+        # answerQuestionFromLinks,
+        getLatestQuote,
+        getTokenMetadata,
+        Tool(
+            name="BuyOrSellSignal",
+            func=tradingview.buySellSignal,
+            description="""Useful when you need to know buy and sell signals for a cryptocurrency. The input to this should be a cryptocurrency's symbol.""",
+            coroutine=tradingview.abuySellSignal,
+        ),
+        arxiv_search,
+        arxiv_load,
+    ]
+    + dune_tools
+)

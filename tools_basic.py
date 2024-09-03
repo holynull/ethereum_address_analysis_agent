@@ -541,7 +541,7 @@ def getDocumentFromLink(
 def summarizeRelevantContents(links: List[str], question: str) -> str:
     """
     Get relevant content from returned by `searchWebPageToAnswer`.
-    The parameter `links` should be top 5 links returned by `searchWebPageToAnswer`.
+    The parameter `links` should be top 10 links returned by `searchWebPageToAnswer`.
     The parameter `question` is required. It should be a complete question which returned from `searchWebPageToAnswer`.
     """
     prompt_template = """Extract as much relevant content about the question as possible from the context below.
@@ -634,7 +634,7 @@ Context:
 def summarizeRelevantContentsNews(links: List[str], question: str) -> str:
     """
     Get relevant content from returned by `searchNewsToAnswer`.
-    The parameter `links` should be top 5 links returned by `searchNewsToAnswer`.
+    The parameter `links` should be top 10 links returned by `searchNewsToAnswer`.
     The parameter `question` is required. It should be a complete question which returned from `searchNewsToAnswer`.
     """
     prompt_template = """Extract as much relevant content about the question as possible from the context below.

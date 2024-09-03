@@ -854,15 +854,15 @@ from dune_tools import dune_tools
 from exa_tools import tools as exa_tools
 
 tools = (
-    exa_tools
-    + [
-        # searchWebPageToAnswer,
-        # searchNewsToAnswer,
-        # searchPlacesToAnswer,
-        # searchImagesToAnswer,
-        # summarizeRelevantContents,
-        # summarizeRelevantContentsNews,
-        # answerQuestionFromLinks,
+    # exa_tools
+	[
+        searchWebPageToAnswer,
+        searchNewsToAnswer,
+        searchPlacesToAnswer,
+        searchImagesToAnswer,
+        summarizeRelevantContents,
+        summarizeRelevantContentsNews,
+        answerQuestionFromLinks,
         getLatestQuote,
         getTokenMetadata,
         Tool(

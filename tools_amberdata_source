@@ -1,0 +1,105 @@
+@tool
+def get_apr_basis_constant_maturity(asset, interval, start_date, end_date):
+    """
+    Retrieves the APR (Annual Percentage Rate) basis and constant maturity data for derivatives futures and perpetual contracts.
+
+    This function accesses the Derivatives Futures/Perpetuals APR Basis - Constant Maturities API endpoint, which provides data on the quoted futures basis for various exchanges, interpolated to represent a constant Days to Expiration (DTE). The data is returned with a 15-minute granularity.
+
+    :param asset: The asset symbol (e.g., 'BTC')
+    :param interval: The time interval for the data (e.g., '30D')
+    :param start_date: The start date for the data (in YYYY-MM-DD format)
+    :param end_date: The end date for the data (in YYYY-MM-DD format)
+    :return: A list of dictionaries containing the following data:
+        - timestamp: Datapoint timestamp
+        - symbol: Normalized asset symbol, including the selected exchange
+        - basisUSD: Total US dollar differential between the spot price and the constant maturity future's price
+        - apr: Annualized yield calculated from the spot price and future's price differential
+
+    If the API request fails, it returns an error message as a string.
+    """
+    endpoint = f"/markets/derivatives/analytics/futures-perpetuals/apr-basis"
+    url = BASE_URL + endpoint
+    
+    headers = {
+        "x-api-key": API_KEY,
+        "Content-Type": "application/json"
+    }
+    
+    params = {
+        'asset': asset,
+        'interval': interval,
+        'startDate': start_date,
+        'endDate': end_date
+    }
+    
+    try:
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        data= response.json()
+        if data and "payload" in data and "data" in data["payload"]:
+            # 提取数据
+            symbols = {}
+            for item in data['payload']['data']:
+                if item['symbol'] not in ["okex_BTC-USD","","okex_BTC-USDC","bitmex_BTC-USD","kraken_BTC-USD"]:
+                    symbol = item['symbol']
+                    timestamp = datetime.fromtimestamp(item['timestamp'] / 1000.0)
+                    apr = item['apr']
+
+                    if symbol not in symbols:
+                        symbols[symbol] = {'timestamps': [], 'aprs': []}
+
+                    symbols[symbol]['timestamps'].append(timestamp)
+                    symbols[symbol]['aprs'].append(apr)
+
+            # 创建两个子图：折线图和面积图
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12))
+
+            # 绘制折线图
+            for symbol, data in symbols.items():
+                ax1.plot(data['timestamps'], data['aprs'], label=symbol, linewidth=2)
+
+            ax1.set_title('Derivatives Futures Perpetuals APR Over Time (Line Chart)')
+            ax1.set_xlabel('Date')
+            ax1.set_ylabel('APR (%)')
+            ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+            ax1.xaxis.set_major_locator(mdates.AutoDateLocator())
+            ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:.2f}%'))
+            ax1.legend()
+            ax1.grid(True, linestyle='--', alpha=0.7)
+
+            # 绘制面积图
+            colors = plt.cm.rainbow(np.linspace(0, 1, len(symbols)))
+            for (symbol, data), color in zip(symbols.items(), colors):
+                ax2.fill_between(data['timestamps'], data['aprs'], alpha=0.3, color=color, label=symbol)
+                ax2.plot(data['timestamps'], data['aprs'], color=color, linewidth=2)
+
+            ax2.set_title('Derivatives Futures Perpetuals APR Over Time (Area Chart)')
+            ax2.set_xlabel('Date')
+            ax2.set_ylabel('APR (%)')
+            ax2.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+            ax2.xaxis.set_major_locator(mdates.AutoDateLocator())
+            ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:.2f}%'))
+            ax2.legend()
+            ax2.grid(True, linestyle='--', alpha=0.7)
+
+            plt.gcf().autofmt_xdate()  # 自动旋转日期标签
+            plt.tight_layout()
+
+            random_filename = f"derivatives_futures_perpetuals_apr_over_time_{uuid.uuid4()}.png"
+            plt.savefig(random_filename, format="png")
+            plt.close()
+
+            # 上传文件到 S3 存储桶的 charts 文件夹
+            s3_client.upload_file(random_filename, "musse.ai", f"charts/{random_filename}")
+            os.remove(random_filename)
+
+            img_str = (
+                f"Below is the URL for the Derivatives Futures Perpetuals APR Over Time chart."
+                + "\n"
+                + f"Image Url: https://musse.ai/charts/{random_filename}"
+            )
+            return f'We get a chart: Derivatives Futures Perpetuals APR Over Time. {img_str}' 
+        else:
+            return None
+    except requests.exceptions.RequestException as e:
+        return f"API request error: {e}"

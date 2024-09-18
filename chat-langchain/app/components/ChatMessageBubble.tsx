@@ -70,6 +70,12 @@ const createAnswerElements = (
   const elements: JSX.Element[] = [];
   let prevIndex = 0;
 
+  // 配置DOMPurify以允许iframe标签
+  DOMPurify.setConfig({
+    ALLOWED_TAGS: ['iframe'],
+    ALLOWED_ATTR: ['src', 'width', 'height', 'frameborder', 'allowfullscreen']
+  });
+
   matches.forEach((match) => {
     const sourceNum = parseInt(match[1], 10);
     const resolvedNum = sourceIndexMap.get(sourceNum) ?? 10;

@@ -623,7 +623,7 @@ Context:
             }
             for _split in splits
         ],
-        config={"configurable": {"model": "openai_gpt_4o"}},
+        config={"configurable": {"model": "openai_gpt_4o_mini"}},
     )
     return "The content snippet obtained from the link is as follows:\n" + (
         "\n" + "#" * 70 + "\n"
@@ -852,10 +852,11 @@ async def getHTMLFromURLs(urls: list[str]) -> str:
 
 from dune_tools import dune_tools
 from exa_tools import tools as exa_tools
+import tools_amberdata
 
 tools = (
     # exa_tools
-	[
+    [
         searchWebPageToAnswer,
         searchNewsToAnswer,
         searchPlacesToAnswer,
@@ -875,4 +876,5 @@ tools = (
         arxiv_load,
     ]
     + dune_tools
+    + tools_amberdata.tools
 )

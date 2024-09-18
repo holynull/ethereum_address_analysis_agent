@@ -30,6 +30,9 @@ import { apiBaseUrl } from "../utils/constants";
 import { ChatPromptValue } from "@langchain/core/prompt_values"
 import { AIMessage, FunctionMessage, AIMessageChunk, FunctionMessageChunk } from "@langchain/core/messages"
 import { forEach } from "lodash";
+import { FaCircleNotch, FaTools, FaKeyboard, FaCheck } from 'react-icons/fa';
+import { BiBot } from 'react-icons/bi';
+
 
 const init_msg = "Please input your question."
 const typing_msg = "Typing answer...."
@@ -48,6 +51,16 @@ function showProcessingTip(processingTip: string) {
 		</Box>
 	}
 }
+
+enum ProcessingStatus {
+	Idle = "idle",
+	SynthesizingQuestion = "synthesizing_question",
+	InvokingTool = "invoking_tool",
+	Processing = "processing",
+	Typing = "typing",
+	Completed = "completed"
+}
+
 export function ChatWindow(props: { conversationId: string }) {
 	const conversationId = props.conversationId;
 
@@ -65,6 +78,50 @@ export function ChatWindow(props: { conversationId: string }) {
 	const [chatHistory, setChatHistory] = useState<
 		{ role: string; content: string }[]
 	>([]);
+
+	const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>(ProcessingStatus.Idle);
+
+	function showProcessingStatus(status: ProcessingStatus) {
+		switch (status) {
+			case ProcessingStatus.Idle:
+				return null;
+			case ProcessingStatus.SynthesizingQuestion:
+				return (
+					<div className="flex items-center text-blue-500">
+						<FaCircleNotch className="animate-spin mr-2" size={20} />
+						<span>思考中</span>
+					</div>
+				);
+			case ProcessingStatus.InvokingTool:
+				return (
+					<div className="flex items-center text-purple-500">
+						<FaTools className="mr-2" size={20} />
+						<span>调用工具</span>
+					</div>
+				);
+			case ProcessingStatus.Processing:
+				return (
+					<div className="flex items-center text-orange-500">
+						<FaCircleNotch className="animate-spin mr-2" size={20} />
+						<span>处理中</span>
+					</div>
+				);
+			case ProcessingStatus.Typing:
+				return (
+					<div className="flex items-center text-green-500">
+						<FaKeyboard className="mr-2" size={20} />
+						<span>输入中</span>
+					</div>
+				);
+			case ProcessingStatus.Completed:
+				return (
+					<div className="flex items-center text-green-500">
+						<FaCheck className="mr-2" size={20} />
+						<span>完成</span>
+					</div>
+				);
+		}
+	}
 
 	const sendMessage = async (message?: string) => {
 		if (messageContainerRef.current) {
@@ -107,12 +164,22 @@ export function ChatWindow(props: { conversationId: string }) {
 			).value;
 			return `<pre class="highlight bg-gray-700" style="padding: 5px; border-radius: 5px; overflow: auto; overflow-wrap: anywhere; white-space: pre-wrap; max-width: 100%; display: block; line-height: 1.2"><code class="${language}" style="color: #d6e2ef; font-size: 12px; ">${highlightedCode}</code></pre>`;
 		};
+		// 添加对原始 HTML 的支持
+		renderer.html = (html) => {
+			console.log(html)
+			// 这里可以添加一些验证逻辑，例如只允许特定的 iframe
+			if (html.startsWith('<iframe') && html.includes('musse.ai')) {
+				return html;
+			}
+			// 对于其他 HTML，你可以选择返回空字符串、原始 HTML 或经过转义的 HTML
+			return ''; // 或者 return html; 或者 return marked.escapeHtml(html);
+		};
 		marked.setOptions({ renderer });
 		try {
 			const sourceStepName = "FindDocs";
 			let streamedResponse: Record<string, any> = {};
 			const remoteChain = new RemoteRunnable({
-				url: process.env.NEXT_PUBLIC_API_URL?process.env.NEXT_PUBLIC_API_URL:"",
+				url: process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL : "",
 				options: {
 					timeout: 3000000,
 				},
@@ -151,38 +218,21 @@ export function ChatWindow(props: { conversationId: string }) {
 					var kind = "event" in _chunk ? _chunk.event : "";
 					switch (kind) {
 						case "on_chain_start":
-							setProcessingTip(prevVal => {
-								return synthesizing_question_msg
-							})
-							break
+							setProcessingStatus(ProcessingStatus.SynthesizingQuestion);
+							break;
 						case "on_chain_end":
-							setProcessingTip(prevVal => {
-								if (prevVal == processing_end_msg) {
-									return init_msg
-								} else if (prevVal != init_msg) {
-									console.log(prevVal)
-									return processing_msg
-								} else {
-									return prevVal
-								}
-							})
-							break
+							setProcessingStatus(ProcessingStatus.Processing);
+							break;
 						case "on_chain_stream":
 							break
 						case "on_chat_model_start":
-							setProcessingTip(prevVal => {
-								return processing_msg
-							})
-							break
+							setProcessingStatus(ProcessingStatus.Processing);
+							break;
 						case "on_chat_model_end":
-							setProcessingTip(prevVal => {
-								return processing_end_msg
-							})
-							break
+							setProcessingStatus(ProcessingStatus.Completed);
+							break;
 						case "on_chat_model_stream":
-							setProcessingTip(prevVal => {
-								return typing_msg
-							})
+							setProcessingStatus(ProcessingStatus.Typing);
 							if ("data" in _chunk) {
 								var data = _chunk.data as object
 								if ("chunk" in data && data.chunk instanceof AIMessageChunk) {
@@ -227,11 +277,10 @@ export function ChatWindow(props: { conversationId: string }) {
 							}
 							break
 						case "on_tool_start":
-							setProcessingTip(prevVal => {
-								return invoking_tool_msg
-							})
-							break
+							setProcessingStatus(ProcessingStatus.InvokingTool);
+							break;
 						case "on_tool_end":
+							setProcessingStatus(ProcessingStatus.Processing);
 							// if ("name" in _chunk && _chunk.name == "googleSerperSearch") {
 							// 	if ("data" in _chunk) {
 							// 		var data = _chunk.data as object;
@@ -307,10 +356,12 @@ export function ChatWindow(props: { conversationId: string }) {
 				{ role: "assistant", content: accumulatedMessage },
 			]);
 			setIsLoading(false);
+			setProcessingStatus(ProcessingStatus.Idle);
 		} catch (e) {
 			setMessages((prevMessages) => prevMessages.slice(0, -1));
 			setIsLoading(false);
 			setInput(messageValue);
+			setProcessingStatus(ProcessingStatus.Idle);
 			throw e;
 		}
 	};
@@ -382,8 +433,8 @@ export function ChatWindow(props: { conversationId: string }) {
 						</Select>
 					</div>
 				</div>
-				<div className="flex flex-wrap items-center mt-4">
-					{showProcessingTip(processingTip)}
+				<div className="ml-4">
+					{showProcessingStatus(processingStatus)}
 				</div>
 			</Flex>
 			<div

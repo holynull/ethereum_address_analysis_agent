@@ -578,7 +578,7 @@ Context:
             }
             for _split in splits
         ],
-        config={"configurable": {"model": "openai_gpt_4o"}},
+        config={"configurable": {"model": "openai_gpt_4o_mini"}},
     )
     return (
         "The contents of the first three search results are extracted as follows:\n"
@@ -671,7 +671,7 @@ Context:
             }
             for _split in splits
         ],
-        config={"configurable": {"model": "openai_gpt_4o"}},
+        config={"configurable": {"model": "openai_gpt_4o_mini"}},
     )
     return (
         "The contents of the first three search results are extracted as follows:\n"

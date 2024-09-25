@@ -293,12 +293,13 @@ export function ChatWindow(props: { conversationId: string }) {
 							// 		}
 							// 	}
 							// }
+							let currentSources: Source[] = [];
 							if ("name" in _chunk && _chunk.name == 'search') {
 								if ("data" in _chunk) {
 									var data = _chunk.data as object;
 									if ("output" in data) {
 										var _output = data.output as Array<any>
-										sources = _output.map((doc: Record<string, any>) => ({
+										currentSources = _output.map((doc: Record<string, any>) => ({
 											url: doc.value.url,
 											title: doc.value.title,
 											img_src: doc.value.imageUrl,
@@ -313,7 +314,7 @@ export function ChatWindow(props: { conversationId: string }) {
 										var output = eval('(' + data.output + ')') as object;
 										if ("search_result" in output) {
 											var search_result = output.search_result as Array<any>
-											sources = search_result.map((doc: Record<string, any>) => ({
+											currentSources = search_result.map((doc: Record<string, any>) => ({
 												url: doc.link,
 												title: doc.title,
 												img_src: doc.imageUrl,
@@ -322,6 +323,7 @@ export function ChatWindow(props: { conversationId: string }) {
 									}
 								}
 							}
+							sources = [...sources ? sources : [], ...currentSources];
 							setMessages((prevMessages) => {
 								let newMessages = [...prevMessages];
 								if (

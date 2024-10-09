@@ -76,7 +76,7 @@ export function ChatWindow(props: { conversationId: string }) {
 	const [processingTip, setProcessingTip] = useState("Please input your question.")
 
 	const [chatHistory, setChatHistory] = useState<
-		{ role: string; content: string }[]
+		{ type: string; content: string }[]
 	>([]);
 
 	const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>(ProcessingStatus.Idle);
@@ -354,8 +354,8 @@ export function ChatWindow(props: { conversationId: string }) {
 			}
 			setChatHistory((prevChatHistory) => [
 				...prevChatHistory,
-				{ role: "user", content: messageValue },
-				{ role: "assistant", content: accumulatedMessage },
+				{ type: "human", content: messageValue },
+				{ type: "ai", content: accumulatedMessage },
 			]);
 			setIsLoading(false);
 			setProcessingStatus(ProcessingStatus.Idle);

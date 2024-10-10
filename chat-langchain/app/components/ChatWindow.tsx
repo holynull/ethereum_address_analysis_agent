@@ -188,7 +188,8 @@ export function ChatWindow(props: { conversationId: string }) {
 			const streams = await remoteChain.stream(
 				{
 					input: messageValue,
-					chat_history: chatHistory,
+					// chat_history: chatHistory,
+					chat_history: [],
 				},
 				{
 					configurable: {

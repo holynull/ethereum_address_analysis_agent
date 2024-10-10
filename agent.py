@@ -48,13 +48,13 @@ app.add_middleware(
 
 
 def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
-
     # 从文件加载系统提示
-    from system_prompt import system_prompt
+    with open("system_prompt.txt", "r", encoding="utf-8") as file:
+        system_message = file.read()
 
     prompt = ChatPromptTemplate.from_messages(
         [
-            ("system", system_prompt),
+            ("system", system_message),
             MessagesPlaceholder(variable_name="chat_history"),
             # SystemMessagePromptTemplate.from_template(
             #     "If using the search tool, prefix the string parameter with [S]."
@@ -65,9 +65,15 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
     )
 
     from custom_agent_excutor import CustomToolCallingAgentExecutor
+    from langchain.memory import ConversationBufferMemory
+
+    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
     executor = CustomToolCallingAgentExecutor(
-        llm=llm_agent, prompts=prompt, tools=tools
+        llm=llm_agent,
+        prompts=prompt,
+        tools=tools,
+        memory=memory,
     )
     return executor
 
@@ -127,5 +133,3 @@ llm_agent = ChatAnthropic(
         model="command-r-plus", temperature=0.9, verbose=True, streaming=True
     ),
 )
-
-agent_executor = create_agent_executor(llm_agent=llm_agent)

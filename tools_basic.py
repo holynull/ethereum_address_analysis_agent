@@ -849,6 +849,20 @@ async def getHTMLFromURLs(urls: list[str]) -> str:
         result += "\n" + remove_html_tags(soup.prettify())
     return result
 
+from langchain.chains.moderation import OpenAIModerationChain
+
+@tool
+def moderation(text: str):
+    """
+    Useful when you need to review user input and tool responses for compliance and safety.
+
+    This function utilizes OpenAIModerationChain to check the input text for adherence to
+    community standards, helping to filter out inappropriate or harmful content.
+    It returns the moderation results to ensure the content is safe and appropriate.
+    """
+    moderation = OpenAIModerationChain()
+    return moderation.invoke(text)
+
 
 from dune_tools import dune_tools
 from exa_tools import tools as exa_tools
@@ -857,6 +871,7 @@ import tools_amberdata
 tools = (
     # exa_tools
     [
+        moderation,
         searchWebPageToAnswer,
         searchNewsToAnswer,
         searchPlacesToAnswer,

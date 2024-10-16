@@ -852,16 +852,45 @@ async def getHTMLFromURLs(urls: list[str]) -> str:
 from langchain.chains.moderation import OpenAIModerationChain
 
 @tool
-def moderation(text: str):
+def moderation(text: str) -> Dict[str, Any]:
     """
-    Useful when you need to review user input and tool responses for compliance and safety.
+    Use OpenAI's Moderation API to check if the input text complies with community standards,
+    filtering out inappropriate or harmful content.
 
-    This function utilizes OpenAIModerationChain to check the input text for adherence to
-    community standards, helping to filter out inappropriate or harmful content.
-    It returns the moderation results to ensure the content is safe and appropriate.
+    Args:
+    text (str): The text to be moderated
+
+    Returns:
+    Dict[str, Any]: A dictionary containing the moderation results
     """
-    moderation = OpenAIModerationChain()
-    return moderation.invoke(text)
+    api_key = "YOUR_OPENAI_API_KEY"  # Replace with your actual OpenAI API key
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}"
+    }
+    data = {
+        "input": text
+    }
+
+    response = requests.post(
+        "https://api.openai.com/v1/moderations",
+        headers=headers,
+        data=json.dumps(data)
+    )
+
+    if response.status_code != 200:
+        raise Exception(f"API request failed with status code: {response.status_code}")
+
+    result = response.json()
+    if result["results"][0]["flagged"]:
+        return "Text was found that violates Mlion's content policy."
+    else:
+        return text
+    # return {
+    #     "flagged": result["results"][0]["flagged"],
+    #     "categories": result["results"][0]["categories"],
+    #     "category_scores": result["results"][0]["category_scores"]
+    # }
 
 
 from dune_tools import dune_tools

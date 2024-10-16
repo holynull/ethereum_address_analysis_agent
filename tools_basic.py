@@ -849,8 +849,6 @@ async def getHTMLFromURLs(urls: list[str]) -> str:
         result += "\n" + remove_html_tags(soup.prettify())
     return result
 
-from langchain.chains.moderation import OpenAIModerationChain
-
 @tool
 def moderation(text: str) -> Dict[str, Any]:
     """

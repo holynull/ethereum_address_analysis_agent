@@ -15,7 +15,7 @@ import openai_assistant_api_docs
 import json
 from openai_assistant_tools import TradingviewWrapper
 from html import unescape
-from typing import List
+from typing import Any, Dict, List
 import asyncio
 import os
 from langchain.agents import Tool

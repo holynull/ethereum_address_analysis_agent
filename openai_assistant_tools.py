@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 import aiohttp
 from bs4 import BeautifulSoup
 import requests
-from pydantic import BaseModel 
+from pydantic import BaseModel,model_validator 
 from typing_extensions import Literal
 
 from langchain.utils import get_from_dict_or_env
@@ -48,6 +48,7 @@ class GoogleSerperAPIWrapper(BaseModel):
 
         arbitrary_types_allowed = True
 
+    @model_validator
     def validate_environment(cls, values: Dict) -> Dict:
         """Validate that api key exists in environment."""
         serper_api_key = get_from_dict_or_env(

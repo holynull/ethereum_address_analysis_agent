@@ -21,7 +21,7 @@ from langchain_core.language_models import BaseLanguageModel
 from langchain_core.language_models.llms import LLM
 from langchain_core.outputs import GenerationChunk
 from langchain_core.prompt_values import PromptValue
-from langchain_core.pydantic_v1 import Field, SecretStr, root_validator
+from pydantic import Field, SecretStr, root_validator
 from langchain_core.utils import (
     get_from_dict_or_env,
     get_pydantic_field_names,

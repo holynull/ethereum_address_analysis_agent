@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 import aiohttp
 from bs4 import BeautifulSoup
 import requests
-from langchain_core.pydantic_v1 import BaseModel, root_validator
+from pydantic import BaseModel, root_validator
 from typing_extensions import Literal
 
 from langchain.utils import get_from_dict_or_env
@@ -202,7 +202,7 @@ from typing import Any, AsyncGenerator, Dict, Optional
 
 import aiohttp
 import requests
-from langchain_core.pydantic_v1 import BaseModel, Extra
+from pydantic import BaseModel, Extra
 
 
 class Requests(BaseModel):
@@ -385,7 +385,7 @@ from urllib.parse import urlparse
 
 from langchain_core.language_models import BaseLanguageModel
 from langchain_core.prompts import BasePromptTemplate,PromptTemplate
-from langchain_core.pydantic_v1 import Field, root_validator
+from pydantic import Field, root_validator
 
 from langchain.callbacks.manager import (
     AsyncCallbackManagerForChainRun,

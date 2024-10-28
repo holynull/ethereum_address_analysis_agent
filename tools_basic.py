@@ -10,7 +10,6 @@ from langchain_core.prompts import (
 )
 from langchain_core.output_parsers import StrOutputParser
 from openai_assistant_tools import GoogleSerperAPIWrapper
-from openai_assistant_tools import MyAPIChain
 import openai_assistant_api_docs
 import json
 from openai_assistant_tools import TradingviewWrapper
@@ -56,42 +55,6 @@ headers = {
     "Accepts": "application/json",
     "X-CMC_PRO_API_KEY": os.getenv("CMC_API_KEY"),
 }
-cmc_last_quote_api = MyAPIChain.from_llm_and_api_docs(
-    llm=llm,
-    api_docs=openai_assistant_api_docs.cmc_quote_lastest_api_doc,
-    headers=headers,
-    limit_to_domains=["https://pro-api.coinmarketcap.com"],
-    verbose=True,
-)
-cmc_trending_latest_api = MyAPIChain.from_llm_and_api_docs(
-    llm=llm,
-    api_docs=openai_assistant_api_docs.cmc_trending_latest_api_doc,
-    headers=headers,
-    limit_to_domains=["https://pro-api.coinmarketcap.com"],
-    verbose=True,
-)
-cmc_trending_gainers_losers_api = MyAPIChain.from_llm_and_api_docs(
-    llm=llm,
-    api_docs=openai_assistant_api_docs.cmc_trending_gainers_losers_api_doc,
-    headers=headers,
-    limit_to_domains=["https://pro-api.coinmarketcap.com"],
-    verbose=True,
-)
-cmc_trending_most_visited_api = MyAPIChain.from_llm_and_api_docs(
-    llm=llm,
-    api_docs=openai_assistant_api_docs.cmc_trending_most_visited_api_doc,
-    headers=headers,
-    limit_to_domains=["https://pro-api.coinmarketcap.com"],
-    verbose=True,
-)
-cmc_metadata_api = MyAPIChain.from_llm_and_api_docs(
-    llm=llm,
-    api_docs=openai_assistant_api_docs.cmc_metadata_api_doc,
-    headers=headers,
-    limit_to_domains=["https://pro-api.coinmarketcap.com"],
-    verbose=True,
-)
-
 
 @tool
 def getTokenMetadata(symbol: str) -> str:
@@ -262,13 +225,6 @@ llm = ChatAnthropic(
     ),
     command_r_plus=ChatCohere(
         model="command-r-plus", temperature=0.9, verbose=True, streaming=True
-    ),
-    rebyte_agent=RebyteEndpoint(
-        rebyte_api_key=os.getenv("REBYTE_API_KEY"),
-        project_id=os.getenv("REBYTE_PROJECT_ID"),
-        agent_id=os.getenv("REBYTE_AGENT_ID"),
-        # session_id="oolLdHU2Rro-Y-HSMtD1z",
-        # streaming=True,
     ),
 )
 

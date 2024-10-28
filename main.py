@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from langserve import APIHandler, add_routes
 
 # from langsmith import Client
-from langserve.pydantic_v1 import BaseModel
+from pydantic import BaseModel
 
 from agent import create_agent_executor
 from agent import llm_agent
@@ -58,7 +58,7 @@ async def simple_invoke(request: Request) -> Response:
         api_handler = APIHandler(
             agent_executor.with_types(input_type=Input, output_type=Output),
             path="/chat",
-            config_keys=["metadata", "configurable", "tags", "llm"],
+            # config_keys=["metadata", "configurable", "tags", "llm"],
         )
     else:
         agent_executor = create_agent_executor(llm_agent=llm_agent)
@@ -66,7 +66,7 @@ async def simple_invoke(request: Request) -> Response:
         api_handler = APIHandler(
             agent_executor.with_types(input_type=Input, output_type=Output),
             path="/chat",
-            config_keys=["metadata", "configurable", "tags", "llm"],
+            # config_keys=["metadata", "configurable", "tags", "llm"],
         )
     return await api_handler.astream_events(request)
 

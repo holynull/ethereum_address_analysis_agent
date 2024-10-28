@@ -5,12 +5,11 @@ import re
 from typing import Any, Dict, List, Optional
 
 from langchain_core.documents import Document
-from pydantic import BaseModel, root_validator
 
 logger = logging.getLogger(__name__)
 
 
-class ArxivAPIWrapper(BaseModel):
+class ArxivAPIWrapper():
     """Wrapper around ArxivAPI.
 
     To use, you should have the ``arxiv`` python package installed.
@@ -70,7 +69,6 @@ class ArxivAPIWrapper(BaseModel):
                 return False
         return True
 
-    @root_validator()
     def validate_environment(cls, values: Dict) -> Dict:
         """Validate that the python package exists in environment."""
         try:

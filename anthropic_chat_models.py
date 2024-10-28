@@ -19,7 +19,7 @@ from langchain_core.messages import (
     BaseMessage,
 )
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
-from pydantic import Field, SecretStr, root_validator
+from pydantic import Field, SecretStr 
 from langchain_core.utils import (
     build_extra_kwargs,
     convert_to_secret_str,

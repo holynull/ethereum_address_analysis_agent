@@ -1,9 +1,9 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 
 import aiohttp
 from bs4 import BeautifulSoup
 import requests
-from pydantic import BaseModel,model_validator 
+from pydantic import BaseModel, model_validator
 from typing_extensions import Literal
 
 from langchain.utils import get_from_dict_or_env
@@ -32,7 +32,7 @@ class GoogleSerperAPIWrapper(BaseModel):
     # "places" and "images" is available from Serper but not implemented in the
     # parser of run(). They can be used in results()
     type: Literal["news", "search", "places", "images"] = "search"
-    result_key_for_type = {
+    result_key_for_type: ClassVar[dict] = {
         "news": "news",
         "places": "places",
         "images": "images",
@@ -48,7 +48,7 @@ class GoogleSerperAPIWrapper(BaseModel):
 
         arbitrary_types_allowed = True
 
-    @model_validator
+    @model_validator(mode="before")
     def validate_environment(cls, values: Dict) -> Dict:
         """Validate that api key exists in environment."""
         serper_api_key = get_from_dict_or_env(
@@ -384,7 +384,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from urllib.parse import urlparse
 
 from langchain_core.language_models import BaseLanguageModel
-from langchain_core.prompts import BasePromptTemplate,PromptTemplate
+from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 from pydantic import Field, root_validator
 
 from langchain.callbacks.manager import (
@@ -426,6 +426,7 @@ def _check_in_allowed_domain(url: str, limit_to_domains: Sequence[str]) -> bool:
         if scheme == allowed_scheme and domain == allowed_domain:
             return True
     return False
+
 
 def getHTMLFromURL(url: str) -> str:
     response = requests.get(url)
@@ -586,7 +587,6 @@ Your generation:
 
         prompt = PromptTemplate.from_template(PROMPT_TEMPLATE)
         return cls(llm=llm, prompt=prompt, **kwargs)
-
 
 
 class TradingviewWrapper:

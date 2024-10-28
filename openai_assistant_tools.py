@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 import aiohttp
 from bs4 import BeautifulSoup
 import requests
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel 
 from typing_extensions import Literal
 
 from langchain.utils import get_from_dict_or_env

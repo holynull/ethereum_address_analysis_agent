@@ -240,6 +240,14 @@ The `tbs` parameter of the Google Search API is a very useful tool that allows y
 - Besides time filtering, the `tbs` parameter can be used for other advanced search features, though these are generally less discussed and documented.
 - When using the Google Search API, ensure you comply with its terms of use, including but not limited to rate limits, restrictions on commercial usage, etc.
 
+Return Example:
+```json
+{{
+	"terms":"Hello World Keywords",
+    "tbs":"qdr:w"
+}}
+```
+
 Question:{question}
 """
     chain_0 = (
@@ -295,6 +303,13 @@ def searchWebPageToAnswer(question: str) -> str:
 
 Generate Google search parameters `terms` based on the question. 
 Extract the keywords required for search from the question.
+
+Return Example:
+```json
+{{
+	"terms":"Hello World Keywords"
+}}
+```
 
 Question:{question}
 """

@@ -46,15 +46,67 @@ else:
     script_location = Path(__file__).parent.resolve()
 load_dotenv(dotenv_path=script_location / ".env")
 
-
-llm = ChatOpenAI(
-    model="gpt-3.5-turbo-1106",
-    verbose=True,
-)
 headers = {
     "Accepts": "application/json",
     "X-CMC_PRO_API_KEY": os.getenv("CMC_API_KEY"),
 }
+
+llm = ChatAnthropic(
+    model="claude-3-opus-20240229",
+    # max_tokens=,
+    temperature=0.9,
+    # anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "not_provided"),
+    streaming=True,
+    verbose=True,
+).configurable_alternatives(  # This gives this field an id
+    # When configuring the end runnable, we can then use this id to configure this field
+    ConfigurableField(id="model"),
+    # default_key="openai_gpt_4_turbo_preview",
+    default_key="anthropic_claude_3_opus",
+    anthropic_claude_3_5_sonnet=ChatAnthropic(
+        model="claude-3-5-sonnet-20240620",
+        max_tokens=2000,
+        temperature=0.9,
+        # anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "not_provided"),
+        streaming=True,
+        stream_usage=True,
+        verbose=True,
+    ),
+    openai_gpt_3_5_turbo_1106=ChatOpenAI(
+        model="gpt-3.5-turbo-1106",
+        verbose=True,
+        streaming=True,
+        temperature=0.9,
+    ),
+    openai_gpt_4_turbo_preview=ChatOpenAI(
+        temperature=0.9,
+        model="gpt-4-turbo-2024-04-09",
+        verbose=True,
+        streaming=True,
+    ),
+    openai_gpt_4o=ChatOpenAI(
+        temperature=0.9,
+        model="gpt-4o",
+        verbose=True,
+        streaming=True,
+    ),
+    openai_gpt_4o_mini=ChatOpenAI(
+        temperature=0.9,
+        model="gpt-4o-mini",
+        verbose=True,
+        streaming=True,
+    ),
+    pplx_sonar_medium_chat=ChatPerplexity(
+        model="sonar-medium-chat", temperature=0.9, verbose=True, streaming=True
+    ),
+    mistral_large=ChatMistralAI(
+        model="mistral-large-latest", temperature=0.9, verbose=True, streaming=True
+    ),
+    command_r_plus=ChatCohere(
+        model="command-r-plus", temperature=0.9, verbose=True, streaming=True
+    ),
+)
+
 
 @tool
 def getTokenMetadata(symbol: str) -> str:
@@ -119,6 +171,7 @@ def get_multiple_token_prices(addresses: list[str]):
 
 tradingview = TradingviewWrapper(llm=llm)
 
+
 class GoogleSearchEngineQuery(BaseModel):
     """Search over Google Search."""
 
@@ -146,63 +199,6 @@ class GoogleSearchEngineResult(BaseModel):
     link: str
     # snippet: str
     # imageUrl: str
-
-
-llm = ChatAnthropic(
-    model="claude-3-opus-20240229",
-    # max_tokens=,
-    temperature=0.9,
-    # anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "not_provided"),
-    streaming=True,
-    verbose=True,
-).configurable_alternatives(  # This gives this field an id
-    # When configuring the end runnable, we can then use this id to configure this field
-    ConfigurableField(id="model"),
-    # default_key="openai_gpt_4_turbo_preview",
-    default_key="anthropic_claude_3_opus",
-	anthropic_claude_3_5_sonnet=ChatAnthropic(
-        model="claude-3-5-sonnet-20240620",
-        max_tokens=2000,
-        temperature=0.9,
-        # anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "not_provided"),
-        streaming=True,
-        stream_usage=True,
-        verbose=True,
-    ),
-    openai_gpt_3_5_turbo_1106=ChatOpenAI(
-        model="gpt-3.5-turbo-1106",
-        verbose=True,
-        streaming=True,
-        temperature=0.9,
-    ),
-    openai_gpt_4_turbo_preview=ChatOpenAI(
-        temperature=0.9,
-        model="gpt-4-turbo-2024-04-09",
-        verbose=True,
-        streaming=True,
-    ),
-    openai_gpt_4o=ChatOpenAI(
-        temperature=0.9,
-        model="gpt-4o",
-        verbose=True,
-        streaming=True,
-    ),
-    openai_gpt_4o_mini=ChatOpenAI(
-        temperature=0.9,
-        model="gpt-4o-mini",
-        verbose=True,
-        streaming=True,
-    ),
-    pplx_sonar_medium_chat=ChatPerplexity(
-        model="sonar-medium-chat", temperature=0.9, verbose=True, streaming=True
-    ),
-    mistral_large=ChatMistralAI(
-        model="mistral-large-latest", temperature=0.9, verbose=True, streaming=True
-    ),
-    command_r_plus=ChatCohere(
-        model="command-r-plus", temperature=0.9, verbose=True, streaming=True
-    ),
-)
 
 
 @tool
@@ -647,6 +643,7 @@ async def fetch_page(url):
     await browser.close()
     return html_content
 
+
 # from langchain_community.tools.arxiv.tool import ArxivQueryRun
 from arxiv_wrapper import ArxivAPIWrapper
 
@@ -763,6 +760,7 @@ async def getHTMLFromURLs(urls: list[str]) -> str:
         result += "\n" + remove_html_tags(soup.prettify())
     return result
 
+
 @tool
 def moderation(text: str) -> Dict[str, Any]:
     """
@@ -778,16 +776,12 @@ def moderation(text: str) -> Dict[str, Any]:
     api_key = "YOUR_OPENAI_API_KEY"  # Replace with your actual OpenAI API key
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}"
+        "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}",
     }
-    data = {
-        "input": text
-    }
+    data = {"input": text}
 
     response = requests.post(
-        "https://api.openai.com/v1/moderations",
-        headers=headers,
-        data=json.dumps(data)
+        "https://api.openai.com/v1/moderations", headers=headers, data=json.dumps(data)
     )
 
     if response.status_code != 200:
@@ -806,6 +800,7 @@ def moderation(text: str) -> Dict[str, Any]:
 
 
 from dune_tools import dune_tools
+
 # from exa_tools import tools as exa_tools
 # import tools_amberdata
 

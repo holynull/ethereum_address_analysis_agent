@@ -797,7 +797,7 @@ from dune_tools import dune_tools
 tools = (
     # exa_tools
     [
-        moderation,
+        # moderation,
         searchWebPageToAnswer,
         searchNewsToAnswer,
         searchPlacesToAnswer,

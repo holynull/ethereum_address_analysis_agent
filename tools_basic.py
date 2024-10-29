@@ -119,39 +119,6 @@ def get_multiple_token_prices(addresses: list[str]):
 
 tradingview = TradingviewWrapper(llm=llm)
 
-
-# @tool
-# def googleSerperSearch(query: str, search_type: str = None) -> str:
-#     """Search for a webpage with Google based on the query.
-#     Set the optional search_type (str) parameter to specify whether to search news (search_type='news') or web pages (search_type=None).
-#     """
-#     if search_type == "news":
-#         newsSearch = GoogleSerperAPIWrapper(type=search_type, tbs="qdr:h")
-#         return json.dumps(
-#             [
-#                 {
-#                     "title": r["title"],
-#                     "link": r["link"] if "link" in r else "",
-#                     "snippet": r["snippet"],
-#                     "imageUrl": r["imageUrl"] if "imageUrl" in r else "",
-#                 }
-#                 for r in newsSearch.results(query=query)["news"]
-#             ]
-#         )
-#     else:
-#         searchWebpage = GoogleSerperAPIWrapper()
-#         return json.dumps(
-#             [
-#                 {
-#                     "title": r["title"],
-#                     "link": r["link"],
-#                     "snippet": r["snippet"],
-#                 }
-#                 for r in searchWebpage.results(query=query)["organic"]
-#             ]
-#         )
-
-
 class GoogleSearchEngineQuery(BaseModel):
     """Search over Google Search."""
 
@@ -193,6 +160,15 @@ llm = ChatAnthropic(
     ConfigurableField(id="model"),
     # default_key="openai_gpt_4_turbo_preview",
     default_key="anthropic_claude_3_opus",
+	anthropic_claude_3_5_sonnet=ChatAnthropic(
+        model="claude-3-5-sonnet-20240620",
+        max_tokens=2000,
+        temperature=0.9,
+        # anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "not_provided"),
+        streaming=True,
+        stream_usage=True,
+        verbose=True,
+    ),
     openai_gpt_3_5_turbo_1106=ChatOpenAI(
         model="gpt-3.5-turbo-1106",
         verbose=True,
@@ -279,7 +255,7 @@ Question:{question}
     )
     query = chain_0.invoke(
         {"question": question},
-        config={"configurable": {"model": "openai_gpt_4o_mini"}},
+        config={"configurable": {"model": "anthropic_claude_3_5_sonnet"}},
     )
     print(query)
     newsSearch = GoogleSerperAPIWrapper(type="news", tbs=query.tbs)
@@ -335,7 +311,7 @@ Question:{question}
     )
     query = chain_0.invoke(
         {"question": question},
-        config={"configurable": {"model": "openai_gpt_4o_mini"}},
+        config={"configurable": {"model": "anthropic_claude_3_5_sonnet"}},
     )
     print(query)
     newsSearch = GoogleSerperAPIWrapper(type="search")
@@ -389,7 +365,7 @@ Question:{question}
     )
     query = chain_0.invoke(
         {"question": question},
-        config={"configurable": {"model": "openai_gpt_4o_mini"}},
+        config={"configurable": {"model": "anthropic_claude_3_5_sonnet"}},
     )
     print(query)
     newsSearch = GoogleSerperAPIWrapper(type="places")
@@ -434,7 +410,7 @@ Question:{question}
     )
     query = chain_0.invoke(
         {"question": question},
-        config={"configurable": {"model": "openai_gpt_4o_mini"}},
+        config={"configurable": {"model": "anthropic_claude_3_5_sonnet"}},
     )
     print(query)
     newsSearch = GoogleSerperAPIWrapper(type="images")
@@ -534,7 +510,7 @@ Context:
             }
             for _split in splits
         ],
-        config={"configurable": {"model": "openai_gpt_4o_mini"}},
+        config={"configurable": {"model": "anthropic_claude_3_5_sonnet"}},
     )
     return (
         "The contents of the first three search results are extracted as follows:\n"
@@ -579,7 +555,7 @@ Context:
             }
             for _split in splits
         ],
-        config={"configurable": {"model": "openai_gpt_4o_mini"}},
+        config={"configurable": {"model": "anthropic_claude_3_5_sonnet"}},
     )
     return "The content snippet obtained from the link is as follows:\n" + (
         "\n" + "#" * 70 + "\n"
@@ -627,7 +603,7 @@ Context:
             }
             for _split in splits
         ],
-        config={"configurable": {"model": "openai_gpt_4o_mini"}},
+        config={"configurable": {"model": "anthropic_claude_3_5_sonnet"}},
     )
     return (
         "The contents of the first three search results are extracted as follows:\n"
@@ -655,39 +631,6 @@ async def fetch_page(url):
     html_content = await page.content()
     await browser.close()
     return html_content
-
-
-@tool
-async def get_contents(links: List[str]):
-    """Get the contents of a webpage.
-    The links passed in should be a list of links returned from `search`.
-    """
-    req_tasks = []
-    results = []
-    for url in links:
-        req_tasks.append(fetch_page(url=url))
-        results.append(
-            {
-                "url": url,
-            }
-        )
-    contents = await asyncio.gather(*req_tasks)
-    extract_task = []
-    for _content in contents:
-        no_html = remove_html_tags(_content)
-        prompt = ChatPromptTemplate.from_template(
-            """I have a piece of text that I need you to help summarize, but please ensure that the summary does not exceed 100 words. Here is the text that needs to be summarized: {input}."""
-        )
-        model = ChatOpenAI(model="gpt-3.5-turbo-1106", verbose=True)
-        output_parser = StrOutputParser()
-        chain = prompt | model | output_parser
-        task = chain.with_config({"verbose": True}).ainvoke({"input": no_html})
-        extract_task.append(task)
-    _extracts = await asyncio.gather(*extract_task)
-    for i in range(len(results)):
-        results[i]["extract"] = _extracts[i]
-    return json.dumps(results) if len(results) > 0 else f"There is no any result"
-
 
 # from langchain_community.tools.arxiv.tool import ArxivQueryRun
 from arxiv_wrapper import ArxivAPIWrapper

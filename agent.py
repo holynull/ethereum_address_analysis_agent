@@ -49,7 +49,7 @@ app.add_middleware(
 
 def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
 
-    from system_prompt import system_prompt
+    from system_prompt_0 import system_prompt
 
     prompt = ChatPromptTemplate.from_messages(
         [

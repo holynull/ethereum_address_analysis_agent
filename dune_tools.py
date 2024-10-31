@@ -25,6 +25,9 @@ from datetime import datetime
 import pytz
 import boto3
 
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import networkx as nx
 
 load_dotenv(".env")
 
@@ -452,60 +455,516 @@ def what_is_time_now():
 def get_addres_funds_movements_of(
     address: str,
     contract_address: str,
-    sta_time: str,
-    end_time: str,
-    sort_by: str,
-    ascending: bool,
 ) -> str:
     """
-    This is useful when you need to get the token transfer event and transactions of an address.
-    The parameter `address` must be complete a address.
+    This is useful when you need to get the token flow of an address.
+    The parameter `address` must be a complete address.
     The parameter `contract_address` must be the erc20 token's complete address.
-    The parameters `sta_time` and `end_time` indicate the start time and end time in the format of yyyy-MM-dd HH:mm:ss.
-    The returned dataframe can be sorted according to the parameter `sort_by`. The fields of `sort_by` include 'block_time', 'amount'.
-    The `ascending` parameter indicates the returned dataframe whether to be sorted in ascending order.
+    By default, it returns the latest 20 transactions.
     """
-    # 1. 获取当前时间
-    # now = datetime.now()
-
-    # 2. 计算前一天的时间
-    # yesterday = now - relativedelta(months=1)
-
-    # 4. 将时间格式化为 'yyyy-MM-dd HH:mm:ss' 格式的字符串
-    # formatted_time = yesterday.strftime("%Y-%m-%d %H:%M:%S")
     query = QueryBase(
         name="eddie_get_some_erc20_transfer_of_address",
         query_id=3940668,
         params=[
             QueryParameter.text_type(name="address", value=address),
             QueryParameter.text_type(name="contract_address", value=contract_address),
-            QueryParameter.text_type(name="min_time", value=sta_time),
-            QueryParameter.text_type(name="max_time", value=end_time),
-            QueryParameter.text_type(name="sort_by", value=sort_by),
-            QueryParameter.text_type(
-                name="ascending", value="asc" if ascending else "desc"
-            ),
-            QueryParameter.number_type(name="N", value=500),
+            QueryParameter.number_type(name="N", value=20),
         ],
     )
     results_df = dune.run_query_dataframe(query)
     if not results_df.empty:
-        r_arr = results_df.apply(
-            lambda row: ("Recieve " if row["to"] == address else "Transfer ")
-            + f"{row['amount']} {row['symbol']} "
-            + ("from " + row["from"] if row["to"] == address else "to " + row["to"])
-            + f" at {row['block_time']}. Transation hash: {row['hash']}",
+        results_df["from"] = results_df["from"].str.lower()
+        results_df["to"] = results_df["to"].str.lower()
+        address = address.lower()
+        # Convert 'block_time' to datetime and 'amount' to float
+        results_df["block_time"] = pd.to_datetime(results_df["block_time"])
+        results_df["amount"] = results_df["amount"].astype(float)
+
+        # Function to shorten address
+        def shorten_address(addr):
+            return addr[:6] + "..." + addr[-4:] if len(addr) > 10 else addr
+
+        # Calculate total inflow and outflow
+        total_inflow = results_df[results_df["to"] == address]["amount"].sum()
+        total_outflow = results_df[results_df["from"] == address]["amount"].sum()
+
+        # Create pie chart for inflow/outflow
+        pie_fig = go.Figure(
+            data=[
+                go.Pie(
+                    labels=["Inflow", "Outflow"],
+                    values=[total_inflow, total_outflow],
+                    hole=0.3,
+                )
+            ]
+        )
+        pie_fig.update_layout(title_text="Total Inflow vs Outflow")
+
+        # Create time series of balance changes
+        results_df["balance_change"] = results_df.apply(
+            lambda row: row["amount"] if row["to"] == address else -row["amount"],
             axis=1,
-        ).tolist()
-        if len(results_df) >= 500:
-            pre_re = f"We found 500 data records, but the actual data may exceed 500. Due to the limitation of processing capacity, we can only provide you with the data within 500 as follows:\n"
-        else:
-            pre_re = (
-                f"The information obtained from returned dataframe is as follows:\n"
+        )
+        results_df["cumulative_balance"] = results_df["balance_change"].cumsum()
+
+        balance_fig = go.Figure(
+            data=[
+                go.Scatter(
+                    x=results_df["block_time"],
+                    y=results_df["cumulative_balance"],
+                    mode="lines+markers",
+                )
+            ]
+        )
+        balance_fig.update_layout(
+            title_text="Balance Changes Over Time",
+            xaxis_title="Time",
+            yaxis_title="Balance",
+        )
+
+        # Create network graph
+        G = nx.DiGraph()
+        for _, row in results_df.iterrows():
+            if row["from"] == address.lower():
+                G.add_edge(
+                    shorten_address(address),
+                    shorten_address(row["to"]),
+                    weight=row["amount"],
+                    time=row["block_time"],
+                    direction="out",
+                )
+            elif row["to"] == address.lower():
+                G.add_edge(
+                    shorten_address(row["from"]),
+                    shorten_address(address),
+                    weight=row["amount"],
+                    time=row["block_time"],
+                    direction="in",
+                )
+
+        # Calculate node volumes
+        node_volumes = {node: 0 for node in G.nodes()}
+        for u, v, data in G.edges(data=True):
+            node_volumes[u] += data["weight"]
+            node_volumes[v] += data["weight"]
+
+        # Ensure the central node is at the center
+        center_node = shorten_address(address)
+        import math
+
+        # Function to calculate star layout
+        def calculate_star_layout(G, center_node):
+            pos = {}
+            other_nodes = [node for node in G.nodes() if node != center_node]
+            n = len(other_nodes)
+
+            # 将中心节点放在坐标原点
+            pos[center_node] = np.array([0, 0])
+
+            # 计算其他节点的位置
+            for i, node in enumerate(other_nodes):
+                angle = 2 * math.pi * i / n
+                radius = 1  # 可以根据需要调整这个值来改变节点距离中心的远近
+                x = radius * math.cos(angle)
+                y = radius * math.sin(angle)
+                pos[node] = np.array([x, y])
+
+            return pos
+
+        # Calculate initial positions
+        pos = calculate_star_layout(G, center_node)
+
+        # Adjust node sizes and positions
+        node_sizes = []
+        for node in G.nodes():
+            if node == center_node:
+                node_sizes.append(30)  # 中心节点稍大一些
+            else:
+                volume = node_volumes[node]
+                size = 10 + (
+                    volume / max(node_volumes.values()) * 20
+                )  # 根据交易量调整大小
+                node_sizes.append(size)
+
+                # 调整非中心节点的位置，使交易量大的节点离中心更远
+                direction = pos[node] - pos[center_node]
+                distance = np.linalg.norm(direction)
+                new_distance = distance * (1 + volume / max(node_volumes.values()))
+                pos[node] = pos[center_node] + direction / distance * new_distance
+
+        # Create node trace
+        node_x = [pos[node][0] for node in G.nodes()]
+        node_y = [pos[node][1] for node in G.nodes()]
+
+        node_trace = go.Scatter(
+            x=node_x,
+            y=node_y,
+            mode="markers",
+            hoverinfo="text",
+            marker=dict(
+                showscale=True,
+                colorscale="YlOrRd",
+                reversescale=True,
+                color=[],
+                size=node_sizes,
+                colorbar=dict(
+                    thickness=15,
+                    title="Transaction Volume",
+                    xanchor="left",
+                    titleside="right",
+                    y=0.5,  # 将颜色条移到中间
+                ),
+                line_width=2,
+            ),
+        )
+
+        # Set node properties
+        node_text = []
+        node_colors = []
+        for node in G.nodes():
+            if node == center_node:
+                node_text.append(
+                    f"{node}<br>Central Address<br>Volume: {node_volumes[node]:.2f}"
+                )
+                node_colors.append("#00FFFF")  # Cyan color for central node
+            else:
+                node_text.append(f"{node}<br>Volume: {node_volumes[node]:.2f}")
+                node_colors.append(node_volumes[node])  # 使用 volume 作为颜色值
+
+        node_trace.text = node_text
+        node_trace.marker.color = node_colors
+
+        # Create edge traces
+        edge_x_in, edge_y_in, edge_text_in = [], [], []
+        edge_x_out, edge_y_out, edge_text_out = [], [], []
+
+        for edge in G.edges(data=True):
+            x0, y0 = pos[edge[0]]
+            x1, y1 = pos[edge[1]]
+            if edge[2]["direction"] == "in":
+                edge_x_in.extend([x0, x1, None])
+                edge_y_in.extend([y0, y1, None])
+                edge_text_in.append(
+                    f"From: {edge[0]}<br>To: {edge[1]}<br>Amount: {edge[2]['weight']:.2f}<br>Time: {edge[2]['time']}"
+                )
+            else:
+                edge_x_out.extend([x0, x1, None])
+                edge_y_out.extend([y0, y1, None])
+                edge_text_out.append(
+                    f"From: {edge[0]}<br>To: {edge[1]}<br>Amount: {edge[2]['weight']:.2f}<br>Time: {edge[2]['time']}"
+                )
+
+        edge_trace_in = go.Scatter(
+            x=edge_x_in,
+            y=edge_y_in,
+            line=dict(width=0.5, color="green"),
+            hoverinfo="text",
+            mode="lines",
+            text=edge_text_in,
+            name="Incoming Transfer",
+        )
+
+        edge_trace_out = go.Scatter(
+            x=edge_x_out,
+            y=edge_y_out,
+            line=dict(width=0.5, color="red"),
+            hoverinfo="text",
+            mode="lines",
+            text=edge_text_out,
+            name="Outgoing Transfer",
+        )
+
+        # Create network figure
+        network_fig = go.Figure(
+            data=[edge_trace_in, edge_trace_out, node_trace],
+            layout=go.Layout(
+                title="Network of Transactions",
+                titlefont_size=16,
+                showlegend=True,
+                hovermode="closest",
+                margin=dict(b=20, l=5, r=5, t=40),
+                annotations=[
+                    dict(
+                        text="",
+                        showarrow=False,
+                        xref="paper",
+                        yref="paper",
+                        x=0.005,
+                        y=-0.002,
+                    )
+                ],
+                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                legend=dict(
+                    orientation="h",  # 将图例设置为水平方向
+                    yanchor="bottom",  # 将图例锚点设在底部
+                    y=-0.2,  # 将图例向下移动
+                    xanchor="center",  # 将图例的x轴锚点设在中心
+                    x=0.5,  # 将图例居中
+                ),
+            ),
+        )
+
+        # Add zoom and pan controls
+        network_fig.update_layout(
+            dragmode="pan",
+            updatemenus=[
+                dict(
+                    type="buttons",
+                    showactive=False,
+                    buttons=[
+                        dict(
+                            label="Reset",
+                            method="relayout",
+                            args=[{"xaxis.range": None, "yaxis.range": None}],
+                        ),
+                    ],
+                    direction="left",
+                    pad={"r": 10, "t": 10},
+                    x=0.9,
+                    xanchor="right",
+                    y=1.1,
+                    yanchor="top",
+                )
+            ],
+        )
+
+        # Add central address to legend
+        network_fig.add_trace(
+            go.Scatter(
+                x=[None],
+                y=[None],
+                mode="markers",
+                marker=dict(size=20, color="#00FFFF"),
+                name="Central Address",
             )
-        return pre_re + "\n".join(r_arr)
+        )
+
+        # Create bar chart for all transfer relationships
+        inflow_df = (
+            results_df[results_df["to"] == address]
+            .groupby("from")["amount"]
+            .sum()
+            .sort_values(ascending=False)
+        )
+        outflow_df = (
+            results_df[results_df["from"] == address]
+            .groupby("to")["amount"]
+            .sum()
+            .sort_values(ascending=False)
+        )
+
+        # Combine inflow and outflow data
+        all_addresses = set(inflow_df.index) | set(outflow_df.index)
+        if (
+            all_addresses
+        ):  # Only create the transfer chart if there are addresses to show
+            transfer_data = pd.DataFrame(
+                {
+                    "inflow": inflow_df.reindex(all_addresses).fillna(0),
+                    "outflow": outflow_df.reindex(all_addresses).fillna(0),
+                }
+            ).sort_values("inflow", ascending=False)
+
+            transfer_fig = go.Figure(
+                data=[
+                    go.Bar(
+                        name="Inflow",
+                        x=transfer_data.index.map(shorten_address),
+                        y=transfer_data["inflow"],
+                        marker_color="green",
+                    ),
+                    go.Bar(
+                        name="Outflow",
+                        x=transfer_data.index.map(shorten_address),
+                        y=transfer_data["outflow"],
+                        marker_color="red",
+                    ),
+                ]
+            )
+            transfer_fig.update_layout(
+                barmode="group",
+                title_text="All Transfer Relationships",
+                xaxis_title="Addresses",
+                yaxis_title="Amount",
+                height=max(
+                    400, len(all_addresses) * 20
+                ),  # Adjust height based on number of addresses
+            )
+            transfer_fig.update_xaxes(tickangle=45)
+        else:
+            # Create an empty figure if there are no transfers
+            transfer_fig = go.Figure()
+            transfer_fig.update_layout(
+                title_text="No Transfers Found",
+                annotations=[
+                    dict(
+                        x=0.5,
+                        y=0.5,
+                        xref="paper",
+                        yref="paper",
+                        text="No transfer data available",
+                        showarrow=False,
+                        font=dict(size=20),
+                    )
+                ],
+            )
+
+        # Generate random filename
+        random_filename = f"{uuid.uuid4()}.html"
+
+        # Create HTML content with all charts and explanations
+        html_content = f"""
+        <html>
+        <head>
+            <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    max-width: 1200px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    background-color: #f4f4f4;
+                }}
+                h1 {{
+                    color: #2c3e50;
+                    text-align: center;
+                    margin-bottom: 30px;
+                }}
+                h2 {{
+                    color: #34495e;
+                }}
+                .grid-container {{
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 20px;
+                }}
+                .chart-container {{
+                    background-color: white;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                    padding: 20px;
+                    margin-bottom: 20px;
+                }}
+                .explanation {{
+                    background-color: #e8f4f8;
+                    border-left: 5px solid #3498db;
+                    padding: 10px;
+                    margin-top: 10px;
+                }}
+                .full-width {{
+                    grid-column: 1 / -1;
+                }}
+            </style>
+        </head>
+        <body>
+            <h1>Token {results_df['symbol'].iloc[0]} Flow Analysis for {shorten_address(address)}</h1>
+            
+            <div class="explanation full-width">
+                <h2>What do these charts mean?</h2>
+                <p>We've analyzed the latest {len(results_df)} transactions for this address. Here's what we found:</p>
+            </div>
+        
+            <div class="grid-container">
+                <div class="chart-container">
+                    <div id="pie_chart" style="width:100%;height:400px;"></div>
+                    <div class="explanation">
+                        <p>This pie chart shows the total amount of tokens flowing in (green) versus flowing out (red) of your address.</p>
+                        <p>A larger green section means you're receiving more tokens than you're sending out.</p>
+               </div>
+                </div>
+        
+                <div class="chart-container">
+                    <div id="balance_chart" style="width:100%;height:400px;"></div>
+                    <div class="explanation">
+                        <p>This line chart shows how your token balance has changed over time.</p>
+                        <p>An upward trend means your balance is increasing, while a downward trend means it's decreasing.</p>
+                    </div>
+                </div>
+        
+                <div class="chart-container full-width">
+                    <div id="network_chart" style="width:100%;height:600px;"></div>
+                    <div class="explanation">
+                        <p>This network graph shows the relationships between addresses involved in transactions.</p>
+                        <p>Each node represents an address, with your address at the center in cyan.</p>
+                        <p>Green lines indicate incoming transfers, while red lines indicate outgoing transfers.</p>
+                        <p>Larger nodes and those further from the center represent addresses with higher transaction volumes.</p>
+                    </div>
+                </div>
+        
+                <div class="chart-container full-width">
+                    <div id="transfer_chart" style="width:100%;height:{max(400, len(all_addresses) * 20)}px;"></div>
+                    <div class="explanation">
+                        <p>This bar chart shows all addresses you've interacted with, in terms of token amount.</p>
+                        <p>Green bars represent incoming transfers (tokens you've received), while red bars represent outgoing transfers (tokens you've sent).</p>
+                        <p>Addresses are sorted by the amount of incoming transfers, from highest to lowest.</p>
+                    </div>
+                </div>
+            </div>
+        
+            <script>
+                var pie_data = {pie_fig.to_json()};
+                var balance_data = {balance_fig.to_json()};
+                var network_data = {network_fig.to_json()};
+                var transfer_data = {transfer_fig.to_json()};
+                Plotly.newPlot('pie_chart', pie_data.data, pie_data.layout);
+                Plotly.newPlot('balance_chart', balance_data.data, balance_data.layout);
+                Plotly.newPlot('network_chart', network_data.data, network_data.layout);
+                Plotly.newPlot('transfer_chart', transfer_data.data, transfer_data.layout);
+            </script>
+        </body>
+        </html>
+        """
+
+        # Save as HTML file
+        with open(random_filename, "w") as f:
+            f.write(html_content)
+
+        # Upload file to S3 bucket's charts folder
+        s3_client.upload_file(
+            random_filename,
+            "musse.ai",
+            f"charts/{random_filename}",
+            ExtraArgs={"ContentType": "text/html"},
+        )
+
+        # Remove local file
+        os.remove(random_filename)
+        img_str = (
+            f"Below is the URL of the token flow analysis chart. The title of the chart is: Token {results_df['symbol'].iloc[0]} Flow Analysis for {shorten_address(address)}"
+            + "\n"
+            + f'You can use the Interactive Chart in HTML like this: <iframe src="https://musse.ai/charts/{random_filename}" width="100%" height="2000px" title="Token Flow Analysis chart"></iframe>'
+        )
+
+        summary = f"""
+        Simple analysis summary for {shorten_address(address)}:
+        1. Total tokens received: {total_inflow} {results_df['symbol'].iloc[0]}
+        2. Total tokens sent: {total_outflow} {results_df['symbol'].iloc[0]}
+        3. Net change in balance: {total_inflow - total_outflow} {results_df['symbol'].iloc[0]}
+        4. Number of transactions analyzed: {len(results_df)}
+        5. Time period: from {results_df['block_time'].min()} to {results_df['block_time'].max()}
+        6. Number of unique addresses interacted with: {len(all_addresses)}
+        """
+
+        # Add highest incoming transfer info if available
+        if not inflow_df.empty:
+            summary += f"7. Address with highest incoming transfer: {shorten_address(inflow_df.index[0])} ({inflow_df.values[0]} {results_df['symbol'].iloc[0]})\n"
+        else:
+            summary += "7. No incoming transfers found.\n"
+
+        # Add highest outgoing transfer info if available
+        if not outflow_df.empty:
+            summary += f"8. Address with highest outgoing transfer: {shorten_address(outflow_df.index[0])} ({outflow_df.values[0]} {results_df['symbol'].iloc[0]})\n"
+        else:
+            summary += "8. No outgoing transfers found.\n"
+
+        summary += "\nTo see a visual representation of this data, please check the interactive chart provided below."
+
+        return summary + "\n\n" + img_str
     else:
-        return ""
+        return "No relevant data found."
 
 
 @tool
@@ -1015,11 +1474,11 @@ def get_balances_of_address(address: str):
     # 1. 获取当前时间
     now = datetime.now()
 
-    # 2. 计算前一天的时间
-    yesterday = now - relativedelta(months=3)
+    # 2. 计算三个月前的时间
+    three_months_ago = now - relativedelta(months=3)
 
-    # 4. 将时间格式化为 'yyyy-MM-dd HH:mm:ss' 格式的字符串
-    formatted_time = yesterday.strftime("%Y-%m-%d %H:%M:%S")
+    # 3. 将时间格式化为 'yyyy-MM-dd HH:mm:ss' 格式的字符串
+    formatted_time = three_months_ago.strftime("%Y-%m-%d %H:%M:%S")
     query = QueryBase(
         name="eddie_get_token_balance_of_address",
         query_id=3916915,
@@ -1036,61 +1495,54 @@ def get_balances_of_address(address: str):
             .apply(lambda item: float(item) if item != "<nil>" else 0)
             .tolist()
         )
+
         if sum(sizes) > 0:
-
-            # 创建 explode 参数，增加一些偏移量以增强立体效果
-            explode = [
-                0.1 if size > 0.05 * sum(sizes) else 0 for size in sizes
-            ]  # 只有当占比大于5%时才抬起
-
-            # 创建饼状图
-            plt.figure(figsize=(12, 8), dpi=80)
-            wedges, texts, autotexts = plt.pie(
-                sizes,
-                labels=[
-                    label if size > 0.05 * sum(sizes) else " "
-                    for label, size in zip(labels, sizes)
-                ],  # 只显示大于5%的标签
-                autopct=lambda p: f"{p:.1f}%" if p > 5 else "",  # 只显示大于5%的百分比
-                startangle=140,
-                explode=explode,
-                shadow=True,
-                textprops={"fontsize": 12},  # 设置字体大小
-                pctdistance=0.85,  # 设置百分比文本的位置
+            # 创建饼图数据
+            pie_data = go.Pie(
+                labels=labels,
+                values=sizes,
+                textinfo="percent+label",
+                insidetextorientation="radial",
+                textposition="inside",
+                hole=0.3,  # 添加一个中心孔，使图表更现代
+                marker=dict(line=dict(color="#000000", width=2)),  # 添加黑色边框
+                pull=[
+                    0.1 if size > 0.05 * sum(sizes) else 0 for size in sizes
+                ],  # 突出显示大于5%的部分
             )
 
-            # 删除连接线逻辑，保持饼图简单
-
-            # 设置图例，增加宽度和多行显示
-            plt.legend(
-                wedges,
-                labels,
-                title="Tokens",
-                loc="center left",
-                bbox_to_anchor=(1, 0, 0.5, 1),
-                ncol=2,
-                fontsize=10,  # 设置图例的列数为2
+            # 创建布局
+            layout = go.Layout(
+                title="Token Balance Distribution in USD",
+                showlegend=True,
+                legend=dict(
+                    orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1
+                ),
+                margin=dict(l=20, r=20, t=40, b=20),
+                paper_bgcolor="rgba(0,0,0,0)",  # 设置背景透明
+                plot_bgcolor="rgba(0,0,0,0)",
             )
 
-            plt.title("Token Balance Distribution in USD")
-            plt.axis("equal")  # 使饼状图是一个正圆
+            # 创建图形
+            fig = go.Figure(data=[pie_data], layout=layout)
 
-            # 设置背景透明
-            plt.gca().patch.set_alpha(0.0)  # Set background to transparent
-
-            random_filename = f"token_balance_distribution_{uuid.uuid4()}.png"
-            plt.savefig(random_filename, format="png")
-            plt.close()
+            # 保存为HTML文件
+            random_filename = f"token_balance_distribution_{uuid.uuid4()}.html"
+            fig.write_html(random_filename)
 
             # 上传文件到 S3 存储桶的 charts 文件夹
             s3_client.upload_file(
-                random_filename, "musse.ai", f"charts/{random_filename}"
+                random_filename,
+                "musse.ai",
+                f"charts/{random_filename}",
+                ExtraArgs={"ContentType": "text/html"},
             )
             os.remove(random_filename)
+
             img_str = (
                 f"Below is the URL of the balance distribution chart. The title of the chart is: Token Balance Distribution in USD."
                 + "\n"
-                + f"Image Url:https://musse.ai/charts/{random_filename}"
+                + f'You can use the Interactive Chart in HTML like this: <iframe src="https://musse.ai/charts/{random_filename}" width="100%" height="800px" title="Token Balance Distribution chart"></iframe>'
             )
             r_arr = results_df.apply(
                 lambda row: f"Token: {row['token_symbol']}\nContract address: {row['token_address']}\n"
@@ -1120,11 +1572,11 @@ def get_token_balance_daily_of_address(address: str, token_address: str):
     # 1. 获取当前时间
     now = datetime.now()
 
-    # 2. 计算前一天的时间
-    yesterday = now - relativedelta(months=1)
+    # 2. 计算前一个月的时间
+    one_month_ago = now - relativedelta(months=1)
 
-    # 4. 将时间格式化为 'yyyy-MM-dd HH:mm:ss' 格式的字符串
-    formatted_time = yesterday.strftime("%Y-%m-%d %H:%M:%S")
+    # 3. 将时间格式化为 'yyyy-MM-dd HH:mm:ss' 格式的字符串
+    formatted_time = one_month_ago.strftime("%Y-%m-%d %H:%M:%S")
     query = QueryBase(
         name="eddie_address_token_balances_daily",
         query_id=3954430,
@@ -1142,51 +1594,62 @@ def get_token_balance_daily_of_address(address: str, token_address: str):
         # 按日期排序
         df.sort_values(by="block_time", inplace=True)
 
-        # 绘制折线图
-        plt.figure(figsize=(12, 6))
-        plt.plot(
-            df["block_time"],
-            df["balance"],
-            color="skyblue",
-            marker="o",
-            linestyle="-",
-            linewidth=2,
+        # 使用plotly创建图表
+        fig = make_subplots(specs=[[{"secondary_y": False}]])
+
+        symbol = df["token_symbol"].iloc[0]
+
+        fig.add_trace(
+            go.Scatter(
+                x=df["block_time"],
+                y=df["balance"],
+                mode="lines+markers",
+                name="Balance",
+                line=dict(color="skyblue", width=2),
+                marker=dict(size=8),
+            )
         )
 
-        symbol = df["token_symbol"].apply(lambda x: x).tolist()[0]
+        # 设置布局
+        fig.update_layout(
+            title=f"Daily Balance Changes for {symbol} Token",
+            xaxis_title="Date",
+            yaxis_title=f"Balance ({symbol})",
+            font=dict(size=14),
+            legend=dict(x=0.01, y=0.99, bgcolor="rgba(255, 255, 255, 0.8)"),
+            hovermode="x unified",
+        )
 
-        # 设置日期格式为 "Jan 1, 2024"
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter("%b %d, %Y"))
-        plt.subplots_adjust(bottom=0.2)
+        # 设置x轴日期格式
+        fig.update_xaxes(
+            tickformat="%b %d, %Y", tickangle=45, tickmode="auto", nticks=20
+        )
 
-        # 设置标题和标签
-        plt.title(f"Daily Balance Changes for {symbol} Token", fontsize=16)
-        plt.xlabel("Date", fontsize=14)
-        plt.ylabel(f"Balance ({symbol})", fontsize=14)
-        plt.xticks(rotation=45)
-        plt.grid()
-
-        # 显示图例
-        plt.legend(["Balance"], loc="upper left")
-        random_filename = f"daily_balance_changes_{uuid.uuid4()}.png"
-        plt.savefig(random_filename, format="png")
-        plt.close()
+        # 保存图表为HTML文件
+        random_filename = f"daily_balance_changes_{uuid.uuid4()}.html"
+        fig.write_html(random_filename)
 
         # 上传文件到 S3 存储桶的 charts 文件夹
-        s3_client.upload_file(random_filename, "musse.ai", f"charts/{random_filename}")
+        s3_client.upload_file(
+            random_filename,
+            "musse.ai",
+            f"charts/{random_filename}",
+            ExtraArgs={"ContentType": "text/html"},
+        )
         os.remove(random_filename)
 
         img_str = (
             f"Below is the URL for the daily balance change chart. The title of the chart is: Daily Balance Changes for {symbol} Token"
             + "\n"
-            + f"Image Url:https://musse.ai/charts/{random_filename}"
+            + f'You can use the Interactive Chart in HTML like this: <iframe src="https://musse.ai/charts/{random_filename}" width="100%" height="800px" title="Daily Balance Changes for {symbol} Token"></iframe>'
         )
+
         if not df.empty:
             r_arr = df.apply(
-                lambda row: f"The balance on {row['block_time']} is {row['balance']}.",
+                lambda row: f"The balance on {row['block_time'].strftime('%Y-%m-%d')} is {row['balance']}.",
                 axis=1,
             ).tolist()
-            result = f"Daily Balance Changes for {symbol} Token:" + "\n".join(r_arr)
+            result = f"Daily Balance Changes for {symbol} Token:\n" + "\n".join(r_arr)
             return result + "\n\n" + img_str
         return result
     else:
@@ -1255,10 +1718,10 @@ dune_tools = [
     get_token_balance_daily_of_address,
     get_funds_transfer_status_in_transaction,
     get_address_interact_with,
-    # get_addres_funds_movements_of,
+    get_addres_funds_movements_of,
     # get_eth_movements_of,
-    get_addres_how_much_funds_received,
-    get_addres_how_much_funds_transfered,
+    # get_addres_how_much_funds_received,
+    # get_addres_how_much_funds_transfered,
     get_how_much_eth_recieved,
     get_how_much_eth_transfered,
 ]

@@ -5,25 +5,28 @@ import { Inter } from "next/font/google";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Ethereum Address Analysis",
-  description: "Chatbot for Assistant",
+	title: "Ethereum Address Analysis",
+	description: "Chatbot for Assistant",
 };
 
 export default function RootLayout({
-  children,
+	children,
 }: {
-  children: React.ReactNode;
+	children: React.ReactNode;
 }) {
-  return (
-    <html lang="en" className="h-full">
-      <body className={`${inter.className} h-full`}>
-        <div
-          className="flex flex-col h-full md:p-8"
-          style={{ background: "rgb(38, 38, 41)" }}
-        >
-          {children}
-        </div>
-      </body>
-    </html>
-  );
+	return (
+		<html lang="en" className="h-full">
+			<head>
+				<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
+			</head>
+			<body className={`${inter.className} h-full`}>
+				<div
+					className="flex flex-col h-full md:p-8"
+					style={{ background: "rgb(38, 38, 41)" }}
+				>
+					{children}
+				</div>
+			</body>
+		</html>
+	);
 }

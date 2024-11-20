@@ -38,6 +38,7 @@ from langchain_core.messages import AIMessage, FunctionMessage, HumanMessage
 
 class Input(BaseModel):
     input: str
+    image_url:str
     chat_history: List[Union[HumanMessage, AIMessage, FunctionMessage]]
 
 

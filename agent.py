@@ -58,7 +58,19 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
             # SystemMessagePromptTemplate.from_template(
             #     "If using the search tool, prefix the string parameter with [S]."
             # ),
-            ("human", "{input}"),
+            (
+                "human",
+                [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "{image_url}"},
+                    },
+                    {
+                        "type": "text",
+                        "text": "{input}",
+                    },
+                ],
+            ),
             MessagesPlaceholder(variable_name="agent_scratchpad"),
         ]
     )
@@ -66,7 +78,9 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
     from custom_agent_excutor import CustomToolCallingAgentExecutor
     from langchain.memory import ConversationBufferMemory
 
-    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+    memory = ConversationBufferMemory(
+        input_key="input", memory_key="chat_history", return_messages=True
+    )
 
     executor = CustomToolCallingAgentExecutor(
         llm=llm_agent,
@@ -78,7 +92,7 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
 
 
 llm_agent = ChatAnthropic(
-    model="claude-3-5-sonnet-20240620",
+    model="claude-3-5-sonnet-20241022",
     max_tokens=4096,
     temperature=0.9,
     # anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "not_provided"),

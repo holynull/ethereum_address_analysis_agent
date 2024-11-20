@@ -20,6 +20,8 @@ from langchain_core.prompts import (
 # from langchain.agents.output_parsers import JSONAgentOutputParser
 from langchain_core.runnables import ConfigurableField
 from langchain_core.runnables import Runnable
+from custom_agent_excutor import CustomToolCallingAgentExecutor
+from langchain.memory.chat_memory import BaseMemory
 
 
 from tools_basic import tools
@@ -47,40 +49,53 @@ app.add_middleware(
 )
 
 
-def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
+def create_agent_executor(
+    llm_agent: Runnable,
+    memory: BaseMemory,
+    is_multimodal: bool = False,
+) -> AgentExecutor:
 
     from system_prompt_1 import system_prompt
 
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", system_prompt),
-            MessagesPlaceholder(variable_name="chat_history"),
-            # SystemMessagePromptTemplate.from_template(
-            #     "If using the search tool, prefix the string parameter with [S]."
-            # ),
-            (
-                "human",
-                [
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": "{image_url}"},
-                    },
-                    {
-                        "type": "text",
-                        "text": "{input}",
-                    },
-                ],
-            ),
-            MessagesPlaceholder(variable_name="agent_scratchpad"),
-        ]
-    )
-
-    from custom_agent_excutor import CustomToolCallingAgentExecutor
-    from langchain.memory import ConversationBufferMemory
-
-    memory = ConversationBufferMemory(
-        input_key="input", memory_key="chat_history", return_messages=True
-    )
+    if is_multimodal:
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", system_prompt),
+                MessagesPlaceholder(variable_name="chat_history"),
+                # SystemMessagePromptTemplate.from_template(
+                #     "If using the search tool, prefix the string parameter with [S]."
+                # ),
+                (
+                    "human",
+                    [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": "{image_url}"},
+                        },
+                        {
+                            "type": "text",
+                            "text": "{input}",
+                        },
+                    ],
+                ),
+                MessagesPlaceholder(variable_name="agent_scratchpad"),
+            ]
+        )
+    else:
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", system_prompt),
+                MessagesPlaceholder(variable_name="chat_history"),
+                # SystemMessagePromptTemplate.from_template(
+                #     "If using the search tool, prefix the string parameter with [S]."
+                # ),
+                (
+                    "human",
+                    "{input}",
+                ),
+                MessagesPlaceholder(variable_name="agent_scratchpad"),
+            ]
+        )
 
     executor = CustomToolCallingAgentExecutor(
         llm=llm_agent,

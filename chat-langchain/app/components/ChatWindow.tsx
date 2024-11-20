@@ -272,6 +272,7 @@ export function ChatWindow(props: { conversationId: string }) {
 					metadata: {
 						conversation_id: conversationId,
 						llm: llmDisplayName,
+						is_multimodal: !!(imageBase64 || imageUrl)  // 当有图片时为 true
 					},
 				},
 				// {

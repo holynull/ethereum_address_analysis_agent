@@ -52,6 +52,7 @@ app.add_middleware(
 def create_agent_executor(
     llm_agent: Runnable,
     memory: BaseMemory,
+    image_urls: list[str],
     is_multimodal: bool = False,
 ) -> AgentExecutor:
 
@@ -68,10 +69,13 @@ def create_agent_executor(
                 (
                     "human",
                     [
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": "{image_url}"},
-                        },
+                        *[
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"{url}"},
+                            }
+                            for url in image_urls
+                        ],
                         {
                             "type": "text",
                             "text": "{input}",
@@ -79,7 +83,8 @@ def create_agent_executor(
                     ],
                 ),
                 MessagesPlaceholder(variable_name="agent_scratchpad"),
-            ]
+            ],
+            template_format="jinja2",
         )
     else:
         prompt = ChatPromptTemplate.from_messages(

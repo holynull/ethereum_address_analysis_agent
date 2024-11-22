@@ -39,7 +39,7 @@ from langchain_core.messages import AIMessage, FunctionMessage, HumanMessage
 
 class Input(BaseModel):
     input: str
-    image_url: str
+    image_urls: list[str]
     chat_history: List[Union[HumanMessage, AIMessage, FunctionMessage]]
 
 
@@ -59,18 +59,24 @@ async def simple_invoke(request: Request) -> Response:
     body = await request.json()
     conversation_id = body["config"]["metadata"]["conversation_id"]
     is_multimodal = body["config"]["metadata"]["is_multimodal"]
+    image_urls = body["input"]["image_urls"]
     if conversation_id in agent_executors:
         agent_executor = agent_executors[conversation_id]
         if agent_executor["is_multimodal"] == is_multimodal:
             api_handler = APIHandler(
-                agent_executor["executor"].with_types(input_type=Input, output_type=Output),
+                agent_executor["executor"].with_types(
+                    input_type=Input, output_type=Output
+                ),
                 path="/chat",
                 # config_keys=["metadata", "configurable", "tags", "llm"],
             )
         else:
             memory = chat_memories[conversation_id]
             agent_executor = create_agent_executor(
-                llm_agent=llm_agent, memory=memory, is_multimodal=is_multimodal
+                llm_agent=llm_agent,
+                memory=memory,
+                is_multimodal=is_multimodal,
+                image_urls=image_urls,
             )
             agent_executors[conversation_id] = {
                 "executor": agent_executor,
@@ -86,7 +92,10 @@ async def simple_invoke(request: Request) -> Response:
             input_key="input", memory_key="chat_history", return_messages=True
         )
         agent_executor = create_agent_executor(
-            llm_agent=llm_agent, memory=memory, is_multimodal=is_multimodal
+            llm_agent=llm_agent,
+            memory=memory,
+            is_multimodal=is_multimodal,
+            image_urls=image_urls,
         )
         chat_memories[conversation_id] = memory
         agent_executors[conversation_id] = {

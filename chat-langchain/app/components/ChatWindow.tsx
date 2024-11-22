@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Image, Input } from "@chakra-ui/react";
+import { Button, Image, Input, VStack, Text, Grid } from "@chakra-ui/react";
 import React, { useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { RemoteRunnable } from "langchain/runnables/remote";
@@ -24,7 +24,7 @@ import {
 	Spinner,
 	Box,
 } from "@chakra-ui/react";
-import { ArrowUpIcon, CloseIcon } from "@chakra-ui/icons";
+import { ArrowUpIcon, CloseIcon, DeleteIcon } from "@chakra-ui/icons";
 import { Select, Link } from "@chakra-ui/react";
 import { Source } from "./SourceBubble";
 import { apiBaseUrl } from "../utils/constants";
@@ -62,6 +62,19 @@ enum ProcessingStatus {
 	Completed = "completed"
 }
 
+interface ImageFile {
+	id: string;
+	file: File;
+	previewUrl: string;
+	base64: string;
+}
+
+interface ImageUrl {
+	id: string;
+	url: string;
+	base64: string;
+}
+
 export function ChatWindow(props: { conversationId: string }) {
 	const conversationId = props.conversationId;
 
@@ -71,76 +84,7 @@ export function ChatWindow(props: { conversationId: string }) {
 	const [messages, setMessages] = useState<Array<Message>>([]);
 	const [input, setInput] = useState("");
 	const [imageData, setImageData] = useState<string | null>(null);
-	const [imageBase64, setImageBase64] = useState<string>("");
-	const [imageUrl, setImageUrl] = useState<string>("");
-	const [uploadType, setUploadType] = useState<"file" | "url">("file");
-	const [isConverting, setIsConverting] = useState(false);
-	const convertToBase64 = (file: File): Promise<string> => {
-		return new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.readAsDataURL(file);
-			reader.onload = () => {
-				const base64String = reader.result as string;
-				setImageBase64(base64String);  // 保存base64数据
-				resolve(base64String);
-			};
-			reader.onerror = error => reject(error);
-		});
-	};
-	const urlToBase64 = async (url: string): Promise<string> => {
-		try {
-			const response = await fetch(url);
-			const blob = await response.blob();
-			return new Promise((resolve, reject) => {
-				const reader = new FileReader();
-				reader.onload = () => {
-					const base64String = reader.result as string;
-					setImageBase64(base64String);  // 保存base64数据
-					resolve(base64String);
-				};
-				reader.onerror = reject;
-				reader.readAsDataURL(blob);
-			});
-		} catch (error) {
-			console.error("Error converting URL to base64:", error);
-			throw error;
-		}
-	};
-	const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
-	const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-		const file = event.target.files?.[0];
-		if (file) {
-			if (file.size > MAX_FILE_SIZE) {
-				alert("File size should not exceed 5MB");
-				return;
-			}
-			try {
-				// 创建临时URL用于预览
-				const previewUrl = URL.createObjectURL(file);
-				setImageData(previewUrl); // 设置预览图片
-				await convertToBase64(file);
-			} catch (error) {
-				console.error("Error handling image:", error);
-			}
-		}
-	};
-	const isValidImageUrl = (url: string): boolean => {
-		return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
-	};
-	const handleUrlInput = async (url: string) => {
-		setImageUrl(url);
-		if (url && isValidImageUrl(url)) {
-			try {
-				setIsConverting(true);
-				await urlToBase64(url);
-			} catch (error) {
-				console.error("Error converting URL to base64:", error);
-			} finally {
-				setIsConverting(false);
-			}
-		}
-	};
 	const [isLoading, setIsLoading] = useState(false);
 	const [llm, setLlm] = useState(
 		searchParams.get("llm") ?? "anthropic_claude_3_5_sonnet",
@@ -195,6 +139,125 @@ export function ChatWindow(props: { conversationId: string }) {
 		}
 	}
 
+	const [imageFiles, setImageFiles] = useState<ImageFile[]>([]);
+	const [imageUrls, setImageUrls] = useState<ImageUrl[]>([]);
+	const [uploadType, setUploadType] = useState<"file" | "url">("file");
+	const [isConverting, setIsConverting] = useState(false);
+
+	const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+	const MAX_FILES = 5; // 最多上传5张图片
+
+	const convertToBase64 = (file: File): Promise<string> => {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.readAsDataURL(file);
+			reader.onload = () => {
+				resolve(reader.result as string);
+			};
+			reader.onerror = error => reject(error);
+		});
+	};
+
+	const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+		const files = event.target.files;
+		if (!files) return;
+
+		const totalImages = imageFiles.length + imageUrls.length;
+		if (totalImages + files.length > MAX_FILES) {
+			alert(`You can only upload up to ${MAX_FILES} images in total`);
+			return;
+		}
+
+		for (let i = 0; i < files.length; i++) {
+			const file = files[i];
+			if (file.size > MAX_FILE_SIZE) {
+				alert(`File ${file.name} exceeds 5MB limit`);
+				continue;
+			}
+
+			try {
+				const previewUrl = URL.createObjectURL(file);
+				const base64 = await convertToBase64(file);
+				const newImageFile: ImageFile = {
+					id: Math.random().toString(),
+					file: file,
+					previewUrl: previewUrl,
+					base64: base64
+				};
+				setImageFiles(prev => [...prev, newImageFile]);
+			} catch (error) {
+				console.error("Error handling image:", error);
+			}
+		}
+	};
+
+	const urlToBase64 = async (url: string): Promise<string> => {
+		try {
+			const response = await fetch(url);
+			const blob = await response.blob();
+			return new Promise((resolve, reject) => {
+				const reader = new FileReader();
+				reader.onload = () => resolve(reader.result as string);
+				reader.onerror = reject;
+				reader.readAsDataURL(blob);
+			});
+		} catch (error) {
+			console.error("Error converting URL to base64:", error);
+			throw error;
+		}
+	};
+
+	const isValidImageUrl = (url: string): boolean => {
+		return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+	};
+
+	const handleUrlInput = async (url: string) => {
+		const totalImages = imageFiles.length + imageUrls.length;
+		if (totalImages >= MAX_FILES) {
+			alert(`You can only add up to ${MAX_FILES} images in total`);
+			return;
+		}
+
+		if (url && isValidImageUrl(url)) {
+			try {
+				setIsConverting(true);
+				const base64 = await urlToBase64(url);
+				const newImageUrl: ImageUrl = {
+					id: Math.random().toString(),
+					url: url,
+					base64: base64
+				};
+				setImageUrls(prev => [...prev, newImageUrl]);
+			} catch (error) {
+				console.error("Error converting URL to base64:", error);
+				alert("Error loading image from URL");
+			} finally {
+				setIsConverting(false);
+			}
+		}
+	};
+
+	const removeImage = (id: string, type: "file" | "url") => {
+		if (type === "file") {
+			setImageFiles(prev => {
+				const newFiles = prev.filter(img => img.id !== id);
+				const removedFile = prev.find(img => img.id === id);
+				if (removedFile) {
+					URL.revokeObjectURL(removedFile.previewUrl);
+				}
+				return newFiles;
+			});
+		} else {
+			setImageUrls(prev => prev.filter(img => img.id !== id));
+		}
+	};
+
+	const clearAllImages = () => {
+		imageFiles.forEach(img => URL.revokeObjectURL(img.previewUrl));
+		setImageFiles([]);
+		setImageUrls([]);
+	};
+
 	const sendMessage = async (message?: string) => {
 		if (messageContainerRef.current) {
 			messageContainerRef.current.classList.add("grow");
@@ -247,9 +310,15 @@ export function ChatWindow(props: { conversationId: string }) {
 			return ''; // 或者 return html; 或者 return marked.escapeHtml(html);
 		};
 		marked.setOptions({ renderer });
+
+		const allImages = [
+			...imageFiles.map(img => img.base64),
+			...imageUrls.map(img => img.base64)
+		];
 		try {
 			const sourceStepName = "FindDocs";
 			let streamedResponse: Record<string, any> = {};
+
 			const remoteChain = new RemoteRunnable({
 				url: process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL : "",
 				options: {
@@ -262,7 +331,7 @@ export function ChatWindow(props: { conversationId: string }) {
 					input: messageValue,
 					// chat_history: chatHistory,
 					chat_history: [],
-					image_url: imageBase64 || imageUrl
+					image_urls: allImages
 				},
 				{
 					configurable: {
@@ -272,7 +341,8 @@ export function ChatWindow(props: { conversationId: string }) {
 					metadata: {
 						conversation_id: conversationId,
 						llm: llmDisplayName,
-						is_multimodal: !!(imageBase64 || imageUrl)  // 当有图片时为 true
+						is_multimodal: allImages.length > 0, // 当有图片时为 true
+						images_size: allImages.length
 					},
 				},
 				// {
@@ -440,6 +510,9 @@ export function ChatWindow(props: { conversationId: string }) {
 			setInput(messageValue);
 			setProcessingStatus(ProcessingStatus.Idle);
 			throw e;
+		} finally {
+			// 消息发送后清理图片
+			// clearAllImages();
 		}
 	};
 
@@ -461,15 +534,7 @@ export function ChatWindow(props: { conversationId: string }) {
 			window.history.pushState({ path: newurl }, "", newurl);
 		}
 	};
-	// 添加清理函数
-	const clearImage = () => {
-		if (imageData) {
-			URL.revokeObjectURL(imageData); // 释放临时URL
-		}
-		setImageData(null);
-		setImageUrl("");
-		setImageBase64("");
-	};
+
 	return (
 		<div className="flex flex-col items-center p-8 rounded grow max-h-full">
 			<Flex
@@ -545,13 +610,12 @@ export function ChatWindow(props: { conversationId: string }) {
 					value={uploadType}
 					onChange={(e) => {
 						setUploadType(e.target.value as "file" | "url");
-						clearImage();  // 切换上传类型时清理图片数据
 					}}
 					mb={2}
 					color="white"
 				>
-					<option value="file">Upload Image File</option>
-					<option value="url">Input Image URL</option>
+					<option value="file">Upload Image Files</option>
+					<option value="url">Input Image URLs</option>
 				</Select>
 
 				{uploadType === "file" ? (
@@ -562,57 +626,136 @@ export function ChatWindow(props: { conversationId: string }) {
 							onChange={handleFileUpload}
 							style={{ display: 'none' }}
 							id="image-upload"
+							multiple
 						/>
 						<Button
 							as="label"
 							htmlFor="image-upload"
 							colorScheme="blue"
 							width="100%"
+							isDisabled={imageFiles.length + imageUrls.length >= MAX_FILES}
 						>
-							Choose Image File
+							Choose Image Files ({imageFiles.length + imageUrls.length}/{MAX_FILES})
 						</Button>
 					</InputGroup>
 				) : (
-					<InputGroup>
-						<Input
-							placeholder="Enter image URL"
-							value={imageUrl}
-							onChange={(e) => {
-								const url = e.target.value;
-								setImageUrl(url);
-								if (url) {
-									handleUrlInput(url);
-								}
-							}}
-							color="white"
-							isDisabled={isConverting}
-						/>
-						{isConverting && (
-							<InputRightElement>
-								<Spinner size="sm" />
-							</InputRightElement>
-						)}
-					</InputGroup>
+					<VStack spacing={2} width="100%">
+						<InputGroup>
+							<Input
+								placeholder="Enter image URL"
+								color="white"
+								onKeyDown={(e) => {
+									if (e.key === 'Enter') {
+										const input = e.target as HTMLInputElement;
+										handleUrlInput(input.value);
+										input.value = '';
+									}
+								}}
+								isDisabled={isConverting || imageFiles.length + imageUrls.length >= MAX_FILES}
+							/>
+							{isConverting && (
+								<InputRightElement>
+									<Spinner size="sm" />
+								</InputRightElement>
+							)}
+						</InputGroup>
+						<Text fontSize="sm" color="gray.400">
+							Press Enter to add URL ({imageFiles.length + imageUrls.length}/{MAX_FILES})
+						</Text>
+					</VStack>
 				)}
 
-				{(imageData || imageBase64 || imageUrl) && (
-					<Box position="relative">
-						<Image
-							src={imageData || imageUrl}
-							alt="Preview"
-							maxH="200px"
-							objectFit="contain"
-							mt={2}
-						/>
-						<IconButton
-							aria-label="Clear image"
-							icon={<CloseIcon />}
-							size="sm"
-							position="absolute"
-							top={2}
-							right={2}
-							onClick={clearImage}
-						/>
+				{/* 图片预览网格 */}
+				{(imageFiles.length > 0 || imageUrls.length > 0) && (
+					<Box mt={4} position="relative">
+						{/* 图片预览区域的容器 */}
+						<Box
+							position="relative"
+							borderWidth="1px"
+							borderColor="gray.600"
+							borderRadius="md"
+							p={4}
+						>
+							{/* Clean All 按钮放在右上角 */}
+							<Flex
+								position="absolute"
+								top={2}
+								right={2}
+								zIndex={2}
+							>
+								<Button
+									leftIcon={<DeleteIcon />}
+									size="sm"
+									variant="solid"
+									colorScheme="red"
+									onClick={clearAllImages}
+									transition="all 0.2s"
+									_hover={{
+										transform: 'scale(1.05)',
+										bg: 'red.600'
+									}}
+									_active={{
+										bg: 'red.700'
+									}}
+									borderRadius="md"
+									px={4}
+									opacity={0.9}
+									backdropFilter="blur(8px)"
+								>
+									Clear All ({imageFiles.length + imageUrls.length})
+								</Button>
+							</Flex>
+
+							{/* 图片网格 */}
+							<Grid
+								templateColumns="repeat(auto-fill, minmax(150px, 1fr))"
+								gap={4}
+								mt={2}
+							>
+								{imageFiles.map((img) => (
+									<Box key={img.id} position="relative">
+										<Image
+											src={img.previewUrl}
+											alt="Preview"
+											maxH="150px"
+											objectFit="contain"
+											width="100%"
+											borderRadius="md"
+										/>
+										<IconButton
+											aria-label="Remove image"
+											icon={<CloseIcon />}
+											size="sm"
+											position="absolute"
+											top={1}
+											right={1}
+											onClick={() => removeImage(img.id, "file")}
+										/>
+									</Box>
+								))}
+								{imageUrls.map((img) => (
+									<Box key={img.id} position="relative">
+										<Image
+											src={img.url}
+											alt="Preview"
+											maxH="150px"
+											objectFit="contain"
+											width="100%"
+											borderRadius="md"
+										/>
+										<IconButton
+											aria-label="Remove image"
+											icon={<CloseIcon />}
+											size="sm"
+											position="absolute"
+											top={1}
+											right={1}
+											onClick={() => removeImage(img.id, "url")}
+										/>
+									</Box>
+								))}
+							</Grid>
+						</Box>
 					</Box>
 				)}
 			</Flex>

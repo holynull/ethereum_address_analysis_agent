@@ -16,9 +16,10 @@ export default function RootLayout({
 }) {
 	return (
 		<html lang="en" className="h-full">
-			<head>
+			{process.env.ENV_NAMEV == 'prod' ? <head>
 				<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
-			</head>
+			</head> : ""}
+
 			<body className={`${inter.className} h-full`}>
 				<div
 					className="flex flex-col h-full md:p-8"

@@ -16,7 +16,7 @@ export default function RootLayout({
 }) {
 	return (
 		<html lang="en" className="h-full">
-			{process.env.ENV_NAMEV == 'prod' ? <head>
+			{process.env.ENV_NAME == 'prod' ? <head>
 				<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
 			</head> : ""}
 

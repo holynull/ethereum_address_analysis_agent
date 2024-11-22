@@ -84,7 +84,6 @@ def create_agent_executor(
                 ),
                 MessagesPlaceholder(variable_name="agent_scratchpad"),
             ],
-            template_format="jinja2",
         )
     else:
         prompt = ChatPromptTemplate.from_messages(

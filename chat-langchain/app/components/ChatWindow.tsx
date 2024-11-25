@@ -97,6 +97,9 @@ export function ChatWindow(props: { conversationId: string }) {
 
 	const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>(ProcessingStatus.Idle);
 
+	// 添加一个标志来追踪图片是否已经被使用
+	const [usedImages, setUsedImages] = useState<Set<string>>(new Set());
+
 	function showProcessingStatus(status: ProcessingStatus) {
 		switch (status) {
 			case ProcessingStatus.Idle:
@@ -143,6 +146,7 @@ export function ChatWindow(props: { conversationId: string }) {
 	const [imageUrls, setImageUrls] = useState<ImageUrl[]>([]);
 	const [uploadType, setUploadType] = useState<"file" | "url">("file");
 	const [isConverting, setIsConverting] = useState(false);
+	
 
 	const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 	const MAX_FILES = 5; // 最多上传5张图片
@@ -158,12 +162,14 @@ export function ChatWindow(props: { conversationId: string }) {
 		});
 	};
 
+	// 修改文件上传处理函数
 	const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
 		const files = event.target.files;
 		if (!files) return;
 
-		const totalImages = imageFiles.length + imageUrls.length;
-		if (totalImages + files.length > MAX_FILES) {
+		// 计算当前选择的文件数量
+		const totalImages = imageFiles.length + imageUrls.length + files.length;
+		if (totalImages > MAX_FILES) {
 			alert(`You can only upload up to ${MAX_FILES} images in total`);
 			return;
 		}
@@ -184,11 +190,22 @@ export function ChatWindow(props: { conversationId: string }) {
 					previewUrl: previewUrl,
 					base64: base64
 				};
-				setImageFiles(prev => [...prev, newImageFile]);
+				setImageFiles(prev => {
+					const newFiles = [...prev, newImageFile];
+					// 更新 currentImages
+					setCurrentImages([
+						...newFiles.map(img => img.base64),
+						...imageUrls.map(img => img.base64)
+					]);
+					return newFiles;
+				});
 			} catch (error) {
 				console.error("Error handling image:", error);
 			}
 		}
+
+		// 重置 input 的 value，允许再次选择同一文件
+		event.target.value = '';
 	};
 
 	const urlToBase64 = async (url: string): Promise<string> => {
@@ -227,7 +244,15 @@ export function ChatWindow(props: { conversationId: string }) {
 					url: url,
 					base64: base64
 				};
-				setImageUrls(prev => [...prev, newImageUrl]);
+				setImageUrls(prev => {
+					const newUrls = [...prev, newImageUrl];
+					// 更新 currentImages
+					setCurrentImages([
+						...imageFiles.map(img => img.base64),
+						...newUrls.map(img => img.base64)
+					]);
+					return newUrls;
+				});
 			} catch (error) {
 				console.error("Error converting URL to base64:", error);
 				alert("Error loading image from URL");
@@ -237,6 +262,13 @@ export function ChatWindow(props: { conversationId: string }) {
 		}
 	};
 
+	// 添加新的状态来跟踪当前图片数据
+	const [currentImages, setCurrentImages] = useState<string[]>([]);
+
+	useEffect(() => {
+		console.log('Current images updated:', currentImages);
+	  }, [currentImages]);
+
 	const removeImage = (id: string, type: "file" | "url") => {
 		if (type === "file") {
 			setImageFiles(prev => {
@@ -245,10 +277,23 @@ export function ChatWindow(props: { conversationId: string }) {
 				if (removedFile) {
 					URL.revokeObjectURL(removedFile.previewUrl);
 				}
+				// 更新 currentImages
+				setCurrentImages([
+					...newFiles.map(img => img.base64),
+					...imageUrls.map(img => img.base64)
+				]);
 				return newFiles;
 			});
 		} else {
-			setImageUrls(prev => prev.filter(img => img.id !== id));
+			setImageUrls(prev => {
+				const newUrls = prev.filter(img => img.id !== id);
+				// 更新 currentImages
+				setCurrentImages([
+					...imageFiles.map(img => img.base64),
+					...newUrls.map(img => img.base64)
+				]);
+				return newUrls;
+			});
 		}
 	};
 
@@ -256,6 +301,8 @@ export function ChatWindow(props: { conversationId: string }) {
 		imageFiles.forEach(img => URL.revokeObjectURL(img.previewUrl));
 		setImageFiles([]);
 		setImageUrls([]);
+		setCurrentImages([]);
+		setImageData(null);
 	};
 
 	const sendMessage = async (message?: string) => {
@@ -268,6 +315,13 @@ export function ChatWindow(props: { conversationId: string }) {
 		const messageValue = message ?? input;
 		if (messageValue === "") return;
 		setInput("");
+
+		// 收集当前所有图片
+		const currentImages = [
+			...imageFiles.map(img => img.base64),
+			...imageUrls.map(img => img.base64)
+		].filter(Boolean);
+
 		setMessages((prevMessages) => {
 			const newMessages = [
 				...prevMessages,
@@ -319,10 +373,7 @@ export function ChatWindow(props: { conversationId: string }) {
 		};
 		marked.setOptions({ renderer });
 
-		const allImages = [
-			...imageFiles.map(img => img.base64),
-			...imageUrls.map(img => img.base64)
-		];
+
 		try {
 			const sourceStepName = "FindDocs";
 			let streamedResponse: Record<string, any> = {};
@@ -339,7 +390,7 @@ export function ChatWindow(props: { conversationId: string }) {
 					input: messageValue,
 					// chat_history: chatHistory,
 					chat_history: [],
-					image_urls: allImages
+					image_urls: currentImages
 				},
 				{
 					configurable: {
@@ -349,8 +400,8 @@ export function ChatWindow(props: { conversationId: string }) {
 					metadata: {
 						conversation_id: conversationId,
 						llm: llmDisplayName,
-						is_multimodal: allImages.length > 0, // 当有图片时为 true
-						images_size: allImages.length
+						is_multimodal: currentImages.length > 0, // 当有图片时为 true
+						images_size: currentImages.length
 					},
 				},
 				// {
@@ -522,9 +573,6 @@ export function ChatWindow(props: { conversationId: string }) {
 			setInput(messageValue);
 			setProcessingStatus(ProcessingStatus.Idle);
 			throw e;
-		} finally {
-			// 消息发送后清理图片
-			// clearAllImages();
 		}
 	};
 

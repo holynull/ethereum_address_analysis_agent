@@ -8,6 +8,7 @@ from langchain_core.prompts import (
     ChatPromptTemplate,
     PromptTemplate,
 )
+from tradingview_ta import TA_Handler, Interval, Exchange
 from langchain_core.output_parsers import StrOutputParser
 from openai_assistant_tools import GoogleSerperAPIWrapper
 import openai_assistant_api_docs
@@ -239,7 +240,7 @@ The `tbs` parameter of the Google Search API is a very useful tool that allows y
 Return Example:
 ```json
 {{
-	"terms":"Hello World Keywords",
+    "terms":"Hello World Keywords",
     "tbs":"qdr:w"
 }}
 ```
@@ -303,7 +304,7 @@ Extract the keywords required for search from the question.
 Return Example:
 ```json
 {{
-	"terms":"Hello World Keywords"
+    "terms":"Hello World Keywords"
 }}
 ```
 
@@ -799,6 +800,91 @@ def moderation(text: str) -> Dict[str, Any]:
     # }
 
 
+@tool
+def buy_sell_signal(symbol: str) -> str:
+    """Analyzes trading signals for cryptocurrency pairs against USDT using TradingView technical analysis.
+
+    This function provides comprehensive technical analysis including:
+    - Overall market summary (buy/sell/neutral signals)
+    - Oscillator analysis (RSI, Stochastic, CCI, etc.)
+    - Moving averages analysis (EMA, SMA across different periods)
+    - Detailed technical indicators
+
+    Input:
+    - symbol (str): Cryptocurrency symbol (e.g., 'BTC' for Bitcoin, 'ETH' for Ethereum)
+
+    Output:
+    - Returns a detailed analysis string containing:
+        * Current market trend analysis
+        * Signal strength score (1-10 scale)
+        * Trading recommendations based on technical indicators
+        * Comprehensive market analysis combining multiple technical factors
+
+    Example usage:
+    buy_sell_signal("BTC") - Analyzes BTC/USDT trading pair
+    buy_sell_signal("ETH") - Analyzes ETH/USDT trading pair
+    """
+    btc_usdt = TA_Handler(
+        symbol=f"{symbol}USDT",
+        screener="crypto",
+        exchange="GATEIO",
+        interval=Interval.INTERVAL_1_DAY,
+    )
+    summary = btc_usdt.get_analysis().summary
+    oscillators = btc_usdt.get_analysis().oscillators
+    moving_averages = btc_usdt.get_analysis().moving_averages
+    indicators = btc_usdt.get_analysis().indicators
+    # return "\n".join([f"Summary:{summary}",f"Oscillators:{oscillators}",f"Moving Averages:{moving_averages}",f"Indicators:{indicators}"])
+    PROMPT_TEMPLATE = """We have an unofficial python API wrapper to retrieve technical analysis from TradingView.
+Retrieving the analysis:
+- summary: Technical analysis (based on both oscillators and moving averages).
+```
+# Example
+{{'RECOMMENDATION': 'BUY', 'BUY': 12, 'SELL': 7, 'NEUTRAL': 9}}
+```
+- oscillators: Technical analysis (based on oscillators).
+```
+# Example
+{{'RECOMMENDATION': 'BUY', 'BUY': 2, 'SELL': 1, 'NEUTRAL': 8, 'COMPUTE': {{'RSI': 'NEUTRAL', 'STOCH.K': 'NEUTRAL', 'CCI': 'NEUTRAL', 'ADX': 'NEUTRAL', 'AO': 'NEUTRAL', 'Mom': 'BUY', 'MACD': 'SELL', 'Stoch.RSI': 'NEUTRAL', 'W%R': 'NEUTRAL', 'BBP': 'BUY', 'UO': 'NEUTRAL'}}}}
+```
+- moving_averages: Technical analysis (based on moving averages).
+```
+# Example
+{{'RECOMMENDATION': 'BUY', 'BUY': 9, 'SELL': 5, 'NEUTRAL': 1, 'COMPUTE': {{'EMA10': 'SELL', 'SMA10': 'SELL', 'EMA20': 'SELL', 'SMA20': 'SELL', 'EMA30': 'BUY', 'SMA30': 'BUY', 'EMA50': 'BUY', 'SMA50': 'BUY', 'EMA100': 'BUY', 'SMA100': 'BUY', 'EMA200': 'BUY', 'SMA200': 'BUY', 'Ichimoku': 'NEUTRAL', 'VWMA': 'SELL', 'HullMA': 'BUY'}}}}
+```
+- indicators: Technical indicators.
+```
+# Example
+{{'Recommend.Other': 0, 'Recommend.All': 0.26666667, 'Recommend.MA': 0.53333333, 'RSI': 60.28037412, 'RSI[1]': 58.58364778, 'Stoch.K': 73.80404453, 'Stoch.D': 79.64297643, 'Stoch.K[1]': 78.88160227, 'Stoch.D[1]': 85.97647064, 'CCI20': 46.58442886, 'CCI20[1]': 34.57058796, 'ADX': 35.78754863, 'ADX+DI': 23.16948389, 'ADX-DI': 13.82449817, 'ADX+DI[1]': 24.15991909, 'ADX-DI[1]': 13.87125505, 'AO': 6675.72158824, 'AO[1]': 7283.92420588, 'Mom': 1532.6, 'Mom[1]': 108.29, 'MACD.macd': 2444.73734978, 'MACD.signal': 2606.00138275, 'Rec.Stoch.RSI': 0, 'Stoch.RSI.K': 18.53740187, 'Rec.WR': 0, 'W.R': -26.05634845, 'Rec.BBPower': 0, 'BBPower': 295.52055898, 'Rec.UO': 0, 'UO': 55.68311917, 'close': 45326.97, 'EMA5': 45600.06414333, 'SMA5': 45995.592, 'EMA10': 45223.22433151, 'SMA10': 45952.635, 'EMA20': 43451.52018338, 'SMA20': 43609.214, 'EMA30': 41908.5944052, 'SMA30': 40880.391, 'EMA50': 40352.10222373, 'SMA50': 37819.3566, 'EMA100': 40356.09177879, 'SMA100': 38009.7808, 'EMA200': 39466.50411569, 'SMA200': 45551.36135, 'Rec.Ichimoku': 0, 'Ichimoku.BLine': 40772.57, 'Rec.VWMA': 1, 'VWMA': 43471.81729377, 'Rec.HullMA9': -1, 'HullMA9': 45470.37107407, 'Pivot.M.Classic.S3': 11389.27666667, 'Pivot.M.Classic.S2': 24559.27666667, 'Pivot.M.Classic.S1': 33010.55333333, 'Pivot.M.Classic.Middle': 37729.27666667, 'Pivot.M.Classic.R1': 46180.55333333, 'Pivot.M.Classic.R2': 50899.27666667, 'Pivot.M.Classic.R3': 64069.27666667, 'Pivot.M.Fibonacci.S3': 24559.27666667, 'Pivot.M.Fibonacci.S2': 29590.21666667, 'Pivot.M.Fibonacci.S1': 32698.33666667, 'Pivot.M.Fibonacci.Middle': 37729.27666667, 'Pivot.M.Fibonacci.R1': 42760.21666667, 'Pivot.M.Fibonacci.R2': 45868.33666667, 'Pivot.M.Fibonacci.R3': 50899.27666667, 'Pivot.M.Camarilla.S3': 37840.08, 'Pivot.M.Camarilla.S2': 39047.33, 'Pivot.M.Camarilla.S1': 40254.58, 'Pivot.M.Camarilla.Middle': 37729.27666667, 'Pivot.M.Camarilla.R1': 42669.08, 'Pivot.M.Camarilla.R2': 43876.33, 'Pivot.M.Camarilla.R3': 45083.58, 'Pivot.M.Woodie.S3': 21706.84, 'Pivot.M.Woodie.S2': 25492.42, 'Pivot.M.Woodie.S1': 34876.84, 'Pivot.M.Woodie.Middle': 38662.42, 'Pivot.M.Woodie.R1': 48046.84, 'Pivot.M.Woodie.R2': 51832.42, 'Pivot.M.Woodie.R3': 61216.84, 'Pivot.M.Demark.S1': 35369.915, 'Pivot.M.Demark.Middle': 38908.9575, 'Pivot.M.Demark.R1': 48539.915, 'open': 44695.95, 'P.SAR': 48068.64, 'BB.lower': 37961.23510877, 'BB.upper': 49257.19289123, 'AO[2]': 7524.31223529, 'volume': 32744.424503, 'change': 1.44612354, 'low': 44203.28, 'high': 45560}}
+```
+
+We got the analysis data of {symbol} from python-tradingview-ta as following:
+summary:{summary}
+oscillators:{oscillators}
+moving_averages:{moving_averages}
+indicators:{indicators}
+"""
+    PROMPT_TEMPLATE = (
+        PROMPT_TEMPLATE
+        + """\nPlease generate the analysis results by analyzing data the above, and provide the market trend. If the strength of the signal is represented by a score from 1 to 10, where a higher score indicates a stronger signal, please give a score to the strength of the signal in the end.
+Your generation:
+"""
+    )
+
+    prompt = PromptTemplate.from_template(PROMPT_TEMPLATE)
+    chain = prompt | llm | StrOutputParser()
+    return chain.invoke(
+        {
+            "symbol": f"{symbol}/usdt",
+            "summary": summary,
+            "oscillators": "oscillators",
+            "moving_averages": moving_averages,
+            "indicators": indicators,
+        },
+        config={"configurable": {"model": "anthropic_claude_3_5_sonnet"}},
+    )
+
+
 from dune_tools import dune_tools
 
 # from exa_tools import tools as exa_tools
@@ -817,12 +903,7 @@ tools = (
         answerQuestionFromLinks,
         getLatestQuote,
         getTokenMetadata,
-        Tool(
-            name="BuyOrSellSignal",
-            func=tradingview.buySellSignal,
-            description="""Useful when you need to know buy and sell signals for a cryptocurrency. The input to this should be a cryptocurrency's symbol.""",
-            coroutine=tradingview.abuySellSignal,
-        ),
+        buy_sell_signal,
         arxiv_search,
         arxiv_load,
     ]

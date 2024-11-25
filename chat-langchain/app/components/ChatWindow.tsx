@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Image, Input, VStack, Text, Grid } from "@chakra-ui/react";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { RemoteRunnable } from "langchain/runnables/remote";
 import { applyPatch } from "@langchain/core/utils/json_patch";
@@ -268,10 +268,18 @@ export function ChatWindow(props: { conversationId: string }) {
 		const messageValue = message ?? input;
 		if (messageValue === "") return;
 		setInput("");
-		setMessages((prevMessages) => [
-			...prevMessages,
-			{ id: Math.random().toString(), content: messageValue, role: "user" },
-		]);
+		setMessages((prevMessages) => {
+			const newMessages = [
+				...prevMessages,
+				{
+					id: Math.random().toString(),
+					content: messageValue,
+					role: "user" as const, // 明确指定类型
+				} as Message
+			];
+			setTimeout(scrollToBottom, 0);
+			return newMessages;
+		});
 		setIsLoading(true);
 
 		let accumulatedMessage = "";
@@ -417,6 +425,8 @@ export function ChatWindow(props: { conversationId: string }) {
 										newMessages[messageIndex].runId = runId;
 										// newMessages[messageIndex].sources = sources;
 									}
+									// 使用 setTimeout 确保在 DOM 更新后执行滚动
+									setTimeout(scrollToBottom, 0);
 									return newMessages;
 								});
 							}
@@ -488,6 +498,8 @@ export function ChatWindow(props: { conversationId: string }) {
 									newMessages[messageIndex].runId = runId;
 									newMessages[messageIndex].sources = sources;
 								}
+								// 使用 setTimeout 确保在 DOM 更新后执行滚动
+								setTimeout(scrollToBottom, 0);
 								return newMessages;
 							});
 							break
@@ -534,264 +546,291 @@ export function ChatWindow(props: { conversationId: string }) {
 			window.history.pushState({ path: newurl }, "", newurl);
 		}
 	};
-
+	const scrollToBottom = () => {
+		if (messageContainerRef.current) {
+			messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
+		}
+	};
+	useEffect(() => {
+		scrollToBottom();
+	}, [messages]);
 	return (
-		<div className="flex flex-col items-center p-8 rounded grow max-h-full">
-			<Flex
-				direction={"column"}
-				alignItems={"center"}
-				marginTop={messages.length > 0 ? "" : "64px"}
-			>
-				<Heading
-					fontSize={messages.length > 0 ? "2xl" : "3xl"}
-					fontWeight={"medium"}
-					mb={1}
-					color={"white"}
-				>
-					🍺 Ethereum Address Analysis 🥩
-				</Heading>
-				<Heading
-					fontSize="xl"
-					fontWeight={"normal"}
-					color={"white"}
-					marginTop={"10px"}
-					textAlign={"center"}
-				>
-					Ask me anything!{" "}
-				</Heading>
-
-				<div className="text-white flex flex-wrap items-center mt-4">
-					<div className="flex items-center mb-2">
-						<span className="shrink-0 mr-2">Powered by</span>
-						<Select
-							value={llm}
-							onChange={(e) => {
-								insertUrlParam("llm", e.target.value);
-								setLlm(e.target.value);
-							}}
-							width={"240px"}
+		<div className="min-h-screen w-full bg-[#131318]">
+			<div className="flex flex-col min-h-screen w-full bg-[#131318]">
+				<div className="flex flex-col items-center p-4 md:p-8 grow">
+					<Flex
+						direction={"column"}
+						alignItems={"center"}
+						marginTop={messages.length > 0 ? "" : "64px"}
+					>
+						<Heading
+							fontSize={messages.length > 0 ? "2xl" : "3xl"}
+							fontWeight={"medium"}
+							mb={1}
+							color={"white"}
 						>
-							{/* <option value="anthropic_claude_3_opus">Anthropic-Claude-3-Opus</option> */}
-							{/* <option value="openai_gpt_4_turbo_preview">GPT-4-Turbo</option> */}
-							<option value="anthropic_claude_3_5_sonnet">Anthropic-Claude-3.5-Sonnet</option>
-							<option value="openai_gpt_4o">GPT-4o</option>
-							<option value="openai_gpt_4o_mini">GPT-4o-mini</option>
-							{/* <option value="openai_gpt_3_5_turbo_1106">GPT-3.5-Turbo</option> */}
-							{/* <option value="pplx_sonar_medium_chat">PPLX_sonar_medium_chat</option> */}
-							{/* <option value="mistral_large">Mistral-Large</option> */}
-							{/* <option value="command_r_plus">Command R+</option> */}
-						</Select>
-					</div>
-				</div>
-				<div className="ml-4">
-					{showProcessingStatus(processingStatus)}
-				</div>
-			</Flex>
-			<div
-				className="flex flex-col-reverse w-full mb-2 overflow-auto"
-				ref={messageContainerRef}
-			>
-				{
-					[...messages]
-						.reverse()
-						.map((m, index) => (
-							<ChatMessageBubble
-								key={m.id}
-								message={{ ...m }}
-								aiEmoji="🦜"
-								isMostRecent={index === 0}
-								messageCompleted={!isLoading}
-							></ChatMessageBubble>
-						))
-				}
-			</div>
-			<Flex direction="column" width="100%" mb={4}>
-				<Select
-					value={uploadType}
-					onChange={(e) => {
-						setUploadType(e.target.value as "file" | "url");
-					}}
-					mb={2}
-					color="white"
-				>
-					<option value="file">Upload Image Files</option>
-					<option value="url">Input Image URLs</option>
-				</Select>
-
-				{uploadType === "file" ? (
-					<InputGroup>
-						<input
-							type="file"
-							accept="image/*"
-							onChange={handleFileUpload}
-							style={{ display: 'none' }}
-							id="image-upload"
-							multiple
-						/>
-						<Button
-							as="label"
-							htmlFor="image-upload"
-							colorScheme="blue"
-							width="100%"
-							isDisabled={imageFiles.length + imageUrls.length >= MAX_FILES}
+							🍺 Ethereum Address Analysis 🥩
+						</Heading>
+						<Heading
+							fontSize="xl"
+							fontWeight={"normal"}
+							color={"white"}
+							marginTop={"10px"}
+							textAlign={"center"}
 						>
-							Choose Image Files ({imageFiles.length + imageUrls.length}/{MAX_FILES})
-						</Button>
-					</InputGroup>
-				) : (
-					<VStack spacing={2} width="100%">
-						<InputGroup>
-							<Input
-								placeholder="Enter image URL"
-								color="white"
-								onKeyDown={(e) => {
-									if (e.key === 'Enter') {
-										const input = e.target as HTMLInputElement;
-										handleUrlInput(input.value);
-										input.value = '';
-									}
-								}}
-								isDisabled={isConverting || imageFiles.length + imageUrls.length >= MAX_FILES}
-							/>
-							{isConverting && (
-								<InputRightElement>
-									<Spinner size="sm" />
-								</InputRightElement>
-							)}
-						</InputGroup>
-						<Text fontSize="sm" color="gray.400">
-							Press Enter to add URL ({imageFiles.length + imageUrls.length}/{MAX_FILES})
-						</Text>
-					</VStack>
-				)}
+							Ask me anything!{" "}
+						</Heading>
 
-				{/* 图片预览网格 */}
-				{(imageFiles.length > 0 || imageUrls.length > 0) && (
-					<Box mt={4} position="relative">
-						{/* 图片预览区域的容器 */}
-						<Box
-							position="relative"
-							borderWidth="1px"
-							borderColor="gray.600"
-							borderRadius="md"
-							p={4}
-						>
-							{/* Clean All 按钮放在右上角 */}
-							<Flex
-								position="absolute"
-								top={2}
-								right={2}
-								zIndex={2}
-							>
-								<Button
-									leftIcon={<DeleteIcon />}
-									size="sm"
-									variant="solid"
-									colorScheme="red"
-									onClick={clearAllImages}
-									transition="all 0.2s"
-									_hover={{
-										transform: 'scale(1.05)',
-										bg: 'red.600'
+						<div className="text-white flex flex-wrap items-center mt-4">
+							<div className="flex items-center mb-2">
+								<span className="shrink-0 mr-2">Powered by</span>
+								<Select
+									value={llm}
+									onChange={(e) => {
+										insertUrlParam("llm", e.target.value);
+										setLlm(e.target.value);
 									}}
-									_active={{
-										bg: 'red.700'
-									}}
-									borderRadius="md"
-									px={4}
-									opacity={0.9}
-									backdropFilter="blur(8px)"
+									width={"240px"}
 								>
-									Clear All ({imageFiles.length + imageUrls.length})
-								</Button>
-							</Flex>
-
-							{/* 图片网格 */}
-							<Grid
-								templateColumns="repeat(auto-fill, minmax(150px, 1fr))"
-								gap={4}
-								mt={2}
-							>
-								{imageFiles.map((img) => (
-									<Box key={img.id} position="relative">
-										<Image
-											src={img.previewUrl}
-											alt="Preview"
-											maxH="150px"
-											objectFit="contain"
-											width="100%"
-											borderRadius="md"
-										/>
-										<IconButton
-											aria-label="Remove image"
-											icon={<CloseIcon />}
-											size="sm"
-											position="absolute"
-											top={1}
-											right={1}
-											onClick={() => removeImage(img.id, "file")}
-										/>
-									</Box>
-								))}
-								{imageUrls.map((img) => (
-									<Box key={img.id} position="relative">
-										<Image
-											src={img.url}
-											alt="Preview"
-											maxH="150px"
-											objectFit="contain"
-											width="100%"
-											borderRadius="md"
-										/>
-										<IconButton
-											aria-label="Remove image"
-											icon={<CloseIcon />}
-											size="sm"
-											position="absolute"
-											top={1}
-											right={1}
-											onClick={() => removeImage(img.id, "url")}
-										/>
-									</Box>
-								))}
-							</Grid>
-						</Box>
-					</Box>
-				)}
-			</Flex>
-			<InputGroup size="md" alignItems={"center"}>
-				<AutoResizeTextarea
-					value={input}
-					maxRows={5}
-					marginRight={"56px"}
-					placeholder="Hello, World!"
-					textColor={"white"}
-					borderColor={"rgb(58, 58, 61)"}
-					onChange={(e) => setInput(e.target.value)}
-					onKeyDown={(e) => {
-						if (e.key === "Enter" && !e.shiftKey) {
-							e.preventDefault();
-							sendMessage();
-						} else if (e.key === "Enter" && e.shiftKey) {
-							e.preventDefault();
-							setInput(input + "\n");
-						}
-					}}
-				/>
-				<InputRightElement h="full">
-					<IconButton
-						colorScheme="blue"
-						rounded={"full"}
-						aria-label="Send"
-						icon={isLoading ? <Spinner /> : <ArrowUpIcon />}
-						type="submit"
-						onClick={(e) => {
-							e.preventDefault();
-							sendMessage();
+									{/* <option value="anthropic_claude_3_opus">Anthropic-Claude-3-Opus</option> */}
+									{/* <option value="openai_gpt_4_turbo_preview">GPT-4-Turbo</option> */}
+									<option value="anthropic_claude_3_5_sonnet">Anthropic-Claude-3.5-Sonnet</option>
+									<option value="openai_gpt_4o">GPT-4o</option>
+									<option value="openai_gpt_4o_mini">GPT-4o-mini</option>
+									{/* <option value="openai_gpt_3_5_turbo_1106">GPT-3.5-Turbo</option> */}
+									{/* <option value="pplx_sonar_medium_chat">PPLX_sonar_medium_chat</option> */}
+									{/* <option value="mistral_large">Mistral-Large</option> */}
+									{/* <option value="command_r_plus">Command R+</option> */}
+								</Select>
+							</div>
+						</div>
+						<div className="ml-4">
+							{showProcessingStatus(processingStatus)}
+						</div>
+					</Flex>
+					<div
+						className="flex flex-col-reverse w-full mb-2 overflow-auto scroll-smooth bg-[#131318]"
+						ref={messageContainerRef}
+						style={{
+							maxHeight: "calc(100vh - 350px)",
+							minHeight: "200px",
+							scrollBehavior: "smooth",
+							flex: 1,
 						}}
-					/>
-				</InputRightElement>
-			</InputGroup>
+					>
+						{
+							[...messages]
+								.reverse()
+								.map((m, index) => (
+									<ChatMessageBubble
+										key={m.id}
+										message={{ ...m }}
+										aiEmoji="🦜"
+										isMostRecent={index === 0}
+										messageCompleted={!isLoading}
+									></ChatMessageBubble>
+								))
+						}
+					</div>
+					<Flex
+						direction="column"
+						width="100%"
+						mb={4}
+						className="bg-[#131318]"
+					>
+						<Select
+							value={uploadType}
+							onChange={(e) => {
+								setUploadType(e.target.value as "file" | "url");
+							}}
+							mb={2}
+							color="white"
+						>
+							<option value="file">Upload Image Files</option>
+							<option value="url">Input Image URLs</option>
+						</Select>
+
+						{uploadType === "file" ? (
+							<InputGroup>
+								<input
+									type="file"
+									accept="image/*"
+									onChange={handleFileUpload}
+									style={{ display: 'none' }}
+									id="image-upload"
+									multiple
+								/>
+								<Button
+									as="label"
+									htmlFor="image-upload"
+									colorScheme="blue"
+									width="100%"
+									isDisabled={imageFiles.length + imageUrls.length >= MAX_FILES}
+								>
+									Choose Image Files ({imageFiles.length + imageUrls.length}/{MAX_FILES})
+								</Button>
+							</InputGroup>
+						) : (
+							<VStack spacing={2} width="100%">
+								<InputGroup>
+									<Input
+										placeholder="Enter image URL"
+										color="white"
+										onKeyDown={(e) => {
+											if (e.key === 'Enter') {
+												const input = e.target as HTMLInputElement;
+												handleUrlInput(input.value);
+												input.value = '';
+											}
+										}}
+										isDisabled={isConverting || imageFiles.length + imageUrls.length >= MAX_FILES}
+									/>
+									{isConverting && (
+										<InputRightElement>
+											<Spinner size="sm" />
+										</InputRightElement>
+									)}
+								</InputGroup>
+								<Text fontSize="sm" color="gray.400">
+									Press Enter to add URL ({imageFiles.length + imageUrls.length}/{MAX_FILES})
+								</Text>
+							</VStack>
+						)}
+
+						{/* 图片预览网格 */}
+						{(imageFiles.length > 0 || imageUrls.length > 0) && (
+							<Box mt={4} position="relative" className="bg-[#131318] w-full">
+								<Box
+									position="relative"
+									borderWidth="1px"
+									borderColor="gray.600"
+									borderRadius="md"
+									p={4}
+									className="bg-[#131318]"
+								>
+									{/* Clean All 按钮 */}
+									<Flex
+										position="absolute"
+										top={2}
+										right={2}
+										zIndex={2}
+									>
+										<Button
+											leftIcon={<DeleteIcon />}
+											size="sm"
+											variant="solid"
+											colorScheme="red"
+											onClick={clearAllImages}
+											transition="all 0.2s"
+											_hover={{
+												transform: 'scale(1.05)',
+												bg: 'red.600'
+											}}
+											_active={{
+												bg: 'red.700'
+											}}
+											borderRadius="md"
+											px={4}
+											opacity={0.9}
+											backdropFilter="blur(8px)"
+										>
+											Clear All ({imageFiles.length + imageUrls.length})
+										</Button>
+									</Flex>
+
+									{/* 图片网格 */}
+									<Grid
+										templateColumns={{
+											base: "repeat(auto-fill, minmax(120px, 1fr))",
+											md: "repeat(auto-fill, minmax(150px, 1fr))"
+										}}
+										gap={4}
+										mt={2}
+										className="bg-[#131318]"
+									>
+										{imageFiles.map((img) => (
+											<Box key={img.id} position="relative">
+												<Image
+													src={img.previewUrl}
+													alt="Preview"
+													maxH="150px"
+													objectFit="contain"
+													width="100%"
+													borderRadius="md"
+												/>
+												<IconButton
+													aria-label="Remove image"
+													icon={<CloseIcon />}
+													size="sm"
+													position="absolute"
+													top={1}
+													right={1}
+													onClick={() => removeImage(img.id, "file")}
+												/>
+											</Box>
+										))}
+										{imageUrls.map((img) => (
+											<Box key={img.id} position="relative">
+												<Image
+													src={img.url}
+													alt="Preview"
+													maxH="150px"
+													objectFit="contain"
+													width="100%"
+													borderRadius="md"
+												/>
+												<IconButton
+													aria-label="Remove image"
+													icon={<CloseIcon />}
+													size="sm"
+													position="absolute"
+													top={1}
+													right={1}
+													onClick={() => removeImage(img.id, "url")}
+												/>
+											</Box>
+										))}
+									</Grid>
+								</Box>
+							</Box>
+						)}
+					</Flex>
+					<InputGroup size="md" alignItems={"center"} className="w-full max-w-full bg-[#131318]">
+						<AutoResizeTextarea
+							value={input}
+							maxRows={5}
+							className="pr-12 w-full" // 添加宽度控制
+							marginRight={"56px"}
+							placeholder="Hello, World!"
+							textColor={"white"}
+							borderColor={"rgb(58, 58, 61)"}
+							onChange={(e) => setInput(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" && !e.shiftKey) {
+									e.preventDefault();
+									sendMessage();
+								} else if (e.key === "Enter" && e.shiftKey) {
+									e.preventDefault();
+									setInput(input + "\n");
+								}
+							}}
+						/>
+						<InputRightElement h="full">
+							<IconButton
+								colorScheme="blue"
+								rounded={"full"}
+								aria-label="Send"
+								icon={isLoading ? <Spinner /> : <ArrowUpIcon />}
+								type="submit"
+								onClick={(e) => {
+									e.preventDefault();
+									sendMessage();
+								}}
+							/>
+						</InputRightElement>
+					</InputGroup>
+				</div>
+			</div >
 		</div>
 	);
 }

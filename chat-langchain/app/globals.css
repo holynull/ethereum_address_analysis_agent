@@ -11,18 +11,6 @@ body,
   background: #131318;
 }
 
-body {
-  color: #f8f8f8;
-  display: flex;
-  flex-direction: column;
-}
-
-#__next {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
 /* 确保所有主要容器都有背景色 */
 .chakra-container,
 .chakra-stack,

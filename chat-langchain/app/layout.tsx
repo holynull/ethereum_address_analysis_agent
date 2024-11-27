@@ -5,8 +5,8 @@ import { Inter } from "next/font/google";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-	title: "Ethereum Address Analysis",
-	description: "Chatbot for Assistant",
+	title: "Musse AI",
+	description: "Musse AI",
 };
 
 export default function RootLayout({
@@ -16,10 +16,12 @@ export default function RootLayout({
 }) {
 	return (
 		<html lang="en" className="h-full">
-			{process.env.ENV_NAME == 'prod' ? <head>
-				<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
-			</head> : ""}
-
+			<head>
+				{process.env.ENV_NAME == 'prod' ?
+					<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
+					: ""}
+					<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+			</head>
 			<body className={`${inter.className} h-full`}>
 				<div
 					className="flex flex-col h-full md:p-8"

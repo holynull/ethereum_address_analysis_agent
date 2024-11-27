@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Image, Input, VStack, Text, Grid } from "@chakra-ui/react";
+import { Button, Image, Input, VStack, Text, Grid, Center } from "@chakra-ui/react";
 import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { RemoteRunnable } from "langchain/runnables/remote";
@@ -24,15 +24,27 @@ import {
 	Spinner,
 	Box,
 } from "@chakra-ui/react";
-import { ArrowUpIcon, CloseIcon, DeleteIcon } from "@chakra-ui/icons";
+import { ArrowUpIcon, CloseIcon, DeleteIcon, Icon, } from "@chakra-ui/icons";
 import { Select, Link } from "@chakra-ui/react";
 import { Source } from "./SourceBubble";
 import { apiBaseUrl } from "../utils/constants";
 import { ChatPromptValue } from "@langchain/core/prompt_values"
 import { AIMessage, FunctionMessage, AIMessageChunk, FunctionMessageChunk } from "@langchain/core/messages"
 import { forEach } from "lodash";
-import { FaCircleNotch, FaTools, FaKeyboard, FaCheck } from 'react-icons/fa';
+import { FaCircleNotch, FaTools, FaKeyboard, FaCheck, FaUpload, FaFilePdf, FaEye } from 'react-icons/fa';
 import { BiBot } from 'react-icons/bi';
+import { Document, Page, pdfjs } from 'react-pdf';
+// import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.entry';
+
+// 重要：在组件外部配置 worker
+if (typeof window !== "undefined") {
+	pdfjs.GlobalWorkerOptions.workerSrc = `//cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+}
+// 设置pdf.js worker路径
+// pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`
+// pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+// pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+// pdfjs.GlobalWorkerOptions.workerSrc = `//cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
 
 
 const init_msg = "Please input your question."
@@ -75,12 +87,12 @@ interface ImageUrl {
 	base64: string;
 }
 
-interface PdfFile {
+interface PDFFile {
 	id: string;
 	file: File;
 	name: string;
-	base64: string;
 	size: number;
+	base64: string;  // 添加 base64 字段
 }
 
 export function ChatWindow(props: { conversationId: string }) {
@@ -134,22 +146,24 @@ export function ChatWindow(props: { conversationId: string }) {
 		setIsDragging(false);
 
 		const files = Array.from(e.dataTransfer.files);
+		const totalFiles = imageFiles.length + imageUrls.length + pdfFiles.length + files.length;
 
-		if (uploadType === 'file') {
-			// 处理图片文件
-			const imageFiles = files.filter(file => file.type.startsWith('image/'));
-			for (const file of imageFiles) {
-				if (imageFiles.length + imageUrls.length >= MAX_FILES) {
-					alert(`You can only upload up to ${MAX_FILES} images in total`);
-					break;
-				}
-				if (file.size > MAX_FILE_SIZE) {
-					alert(`File ${file.name} exceeds 5MB limit`);
-					continue;
-				}
-				try {
+		if (totalFiles > MAX_FILES) {
+			alert(`You can only upload up to ${MAX_FILES} files in total`);
+			return;
+		}
+
+		for (const file of files) {
+			if (file.size > MAX_FILE_SIZE) {
+				alert(`File ${file.name} exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit`);
+				continue;
+			}
+
+			try {
+				const base64 = await convertToBase64(file);
+
+				if (file.type.startsWith('image/')) {
 					const previewUrl = URL.createObjectURL(file);
-					const base64 = await convertToBase64(file);
 					const newImageFile: ImageFile = {
 						id: Math.random().toString(),
 						file: file,
@@ -157,35 +171,18 @@ export function ChatWindow(props: { conversationId: string }) {
 						base64: base64
 					};
 					setImageFiles(prev => [...prev, newImageFile]);
-				} catch (error) {
-					console.error("Error handling image:", error);
-				}
-			}
-		} else if (uploadType === 'pdf') {
-			// 处理PDF文件
-			const pdfFiles = files.filter(file => file.type === 'application/pdf');
-			for (const file of pdfFiles) {
-				if (pdfFiles.length >= MAX_PDFS) {
-					alert(`You can only upload up to ${MAX_PDFS} PDF files in total`);
-					break;
-				}
-				if (file.size > MAX_PDF_SIZE) {
-					alert(`File ${file.name} exceeds 10MB limit`);
-					continue;
-				}
-				try {
-					const base64 = await convertPdfToBase64(file);
-					const newPdfFile: PdfFile = {
+				} else if (file.type === 'application/pdf') {
+					const newPDFFile: PDFFile = {
 						id: Math.random().toString(),
 						file: file,
 						name: file.name,
-						base64: base64,
-						size: file.size
+						size: file.size,
+						base64: base64
 					};
-					setPdfFiles(prev => [...prev, newPdfFile]);
-				} catch (error) {
-					console.error("Error handling PDF:", error);
+					setPdfFiles(prev => [...prev, newPDFFile]);
 				}
+			} catch (error) {
+				console.error("Error handling file:", error);
 			}
 		}
 	};
@@ -238,7 +235,7 @@ export function ChatWindow(props: { conversationId: string }) {
 	const [isConverting, setIsConverting] = useState(false);
 
 
-	const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+	const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 	const MAX_FILES = 5; // 最多上传5张图片
 
 	const convertToBase64 = (file: File): Promise<string> => {
@@ -257,44 +254,48 @@ export function ChatWindow(props: { conversationId: string }) {
 		const files = event.target.files;
 		if (!files) return;
 
-		// 计算当前选择的文件数量
-		const totalImages = imageFiles.length + imageUrls.length + files.length;
-		if (totalImages > MAX_FILES) {
-			alert(`You can only upload up to ${MAX_FILES} images in total`);
+		const totalFiles = imageFiles.length + imageUrls.length + pdfFiles.length + files.length;
+		if (totalFiles > MAX_FILES) {
+			alert(`You can only upload up to ${MAX_FILES} files in total`);
 			return;
 		}
 
 		for (let i = 0; i < files.length; i++) {
 			const file = files[i];
 			if (file.size > MAX_FILE_SIZE) {
-				alert(`File ${file.name} exceeds 5MB limit`);
+				alert(`File ${file.name} exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit`);
 				continue;
 			}
 
 			try {
-				const previewUrl = URL.createObjectURL(file);
 				const base64 = await convertToBase64(file);
-				const newImageFile: ImageFile = {
-					id: Math.random().toString(),
-					file: file,
-					previewUrl: previewUrl,
-					base64: base64
-				};
-				setImageFiles(prev => {
-					const newFiles = [...prev, newImageFile];
-					// 更新 currentImages
-					setCurrentImages([
-						...newFiles.map(img => img.base64),
-						...imageUrls.map(img => img.base64)
-					]);
-					return newFiles;
-				});
+
+				if (file.type.startsWith('image/')) {
+					// 处理图片文件
+					const previewUrl = URL.createObjectURL(file);
+					const newImageFile: ImageFile = {
+						id: Math.random().toString(),
+						file: file,
+						previewUrl: previewUrl,
+						base64: base64
+					};
+					setImageFiles(prev => [...prev, newImageFile]);
+				} else if (file.type === 'application/pdf') {
+					// 处理PDF文件
+					const newPDFFile: PDFFile = {
+						id: Math.random().toString(),
+						file: file,
+						name: file.name,
+						size: file.size,
+						base64: base64
+					};
+					setPdfFiles(prev => [...prev, newPDFFile]);
+				}
 			} catch (error) {
-				console.error("Error handling image:", error);
+				console.error("Error handling file:", error);
 			}
 		}
 
-		// 重置 input 的 value，允许再次选择同一文件
 		event.target.value = '';
 	};
 
@@ -387,100 +388,25 @@ export function ChatWindow(props: { conversationId: string }) {
 		}
 	};
 
-	const clearAllImages = () => {
+	const clearAllFiles = () => {
 		imageFiles.forEach(img => URL.revokeObjectURL(img.previewUrl));
 		setImageFiles([]);
 		setImageUrls([]);
+		setPdfFiles([]);
 		setCurrentImages([]);
 		setImageData(null);
 	};
 
-	const [pdfFiles, setPdfFiles] = useState<PdfFile[]>([]);
-	const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10MB PDF文件大小限制
-	const MAX_PDFS = 3; // 最多上传3个PDF文件
-
-	// 添加PDF文件转base64函数
-	const convertPdfToBase64 = (file: File): Promise<string> => {
-		return new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.readAsDataURL(file);
-			reader.onload = () => {
-				resolve(reader.result as string);
-			};
-			reader.onerror = error => reject(error);
-		});
-	};
-
-	// 添加PDF文件处理函数
-	const handlePdfUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-		const files = event.target.files;
-		if (!files) return;
-
-		if (pdfFiles.length + files.length > MAX_PDFS) {
-			alert(`You can only upload up to ${MAX_PDFS} PDF files in total`);
-			return;
-		}
-
-		for (let i = 0; i < files.length; i++) {
-			const file = files[i];
-			if (file.size > MAX_PDF_SIZE) {
-				alert(`File ${file.name} exceeds 10MB limit`);
-				continue;
-			}
-
-			if (!file.type.includes('pdf')) {
-				alert(`File ${file.name} is not a PDF file`);
-				continue;
-			}
-
-			try {
-				const base64 = await convertPdfToBase64(file);
-				const newPdfFile: PdfFile = {
-					id: Math.random().toString(),
-					file: file,
-					name: file.name,
-					base64: base64,
-					size: file.size
-				};
-				setPdfFiles(prev => [...prev, newPdfFile]);
-			} catch (error) {
-				console.error("Error handling PDF:", error);
-			}
-		}
-
-		event.target.value = '';
-	};
-
-	// 添加PDF文件删除函数
-	const removePdf = (id: string) => {
-		setPdfFiles(prev => {
-			const pdfToRemove = prev.find(pdf => pdf.id === id);
-			if (pdfToRemove) {
-				// 释放URL对象
-				URL.revokeObjectURL(URL.createObjectURL(pdfToRemove.file));
-			}
-			return prev.filter(pdf => pdf.id !== id);
-		});
-	};
-
-	// 清除所有PDF函数
-	const clearAllPdfs = () => {
-		// 释放所有URL对象
-		pdfFiles.forEach(pdf => {
-			URL.revokeObjectURL(URL.createObjectURL(pdf.file));
-		});
-		setPdfFiles([]);
-	};
 	// 在ChatWindow组件中添加粘贴处理函数
 	useEffect(() => {
 		const handlePaste = async (e: ClipboardEvent) => {
-			if (uploadType !== 'file') return; // 只在图片上传模式下处理粘贴
-
 			const items = e.clipboardData?.items;
 			if (!items) return;
 
 			for (const item of Array.from(items)) {
 				if (item.type.startsWith('image/')) {
+					e.preventDefault(); // 阻止默认粘贴行为
+
 					const file = item.getAsFile();
 					if (!file) continue;
 
@@ -503,9 +429,23 @@ export function ChatWindow(props: { conversationId: string }) {
 							previewUrl: previewUrl,
 							base64: base64
 						};
-						setImageFiles(prev => [...prev, newImageFile]);
+
+						setImageFiles(prev => {
+							const newFiles = [...prev, newImageFile];
+							// 更新 currentImages
+							setCurrentImages([
+								...newFiles.map(img => img.base64),
+								...imageUrls.map(img => img.base64)
+							]);
+							return newFiles;
+						});
+
+						// 显示粘贴成功提示
+						// 你可以使用 toast 或其他提示组件
+						console.log('Image pasted successfully');
 					} catch (error) {
 						console.error("Error handling pasted image:", error);
+						alert("Error processing pasted image");
 					}
 				}
 			}
@@ -513,7 +453,7 @@ export function ChatWindow(props: { conversationId: string }) {
 
 		document.addEventListener('paste', handlePaste);
 		return () => document.removeEventListener('paste', handlePaste);
-	}, [imageFiles, imageUrls, uploadType]);
+	}, [imageFiles, imageUrls]); // 只依赖图片数组，移除 uploadType 依赖
 
 	const sendMessage = async (message?: string) => {
 		if (messageContainerRef.current) {
@@ -529,8 +469,10 @@ export function ChatWindow(props: { conversationId: string }) {
 		// 收集当前所有图片
 		const currentImages = [
 			...imageFiles.map(img => img.base64),
-			...imageUrls.map(img => img.base64)
+			...imageUrls.map(img => img.base64),
 		].filter(Boolean);
+
+		const currentPDFs = pdfFiles.map(pdf => pdf.base64).filter(Boolean);
 
 		setMessages((prevMessages) => {
 			const newMessages = [
@@ -539,7 +481,7 @@ export function ChatWindow(props: { conversationId: string }) {
 					id: Math.random().toString(),
 					content: messageValue,
 					role: "user" as const, // 明确指定类型
-					images: currentImages
+					images: currentImages,
 				} as Message
 			];
 			setTimeout(scrollToBottom, 0);
@@ -602,7 +544,7 @@ export function ChatWindow(props: { conversationId: string }) {
 					// chat_history: chatHistory,
 					chat_history: [],
 					image_urls: currentImages,
-					pdf_files: pdfFiles.map(pdf => pdf.base64) // 添加PDF文件数据
+					pdf_files: currentPDFs
 				},
 				{
 					configurable: {
@@ -612,9 +554,8 @@ export function ChatWindow(props: { conversationId: string }) {
 					metadata: {
 						conversation_id: conversationId,
 						llm: llmDisplayName,
-						is_multimodal: currentImages.length > 0, // 当有图片时为 true
+						is_multimodal: currentImages.length > 0 || currentPDFs.length > 0, // 当有图片时为 true
 						images_size: currentImages.length,
-						pdfs_size: pdfFiles.length // 添加PDF文件数量信息
 					},
 				},
 				// {
@@ -815,8 +756,137 @@ export function ChatWindow(props: { conversationId: string }) {
 	useEffect(() => {
 		scrollToBottom();
 	}, [messages]);
+	// 在组件顶部添加全局粘贴提示
+	// 修改 GlobalPasteHint 组件的定义
+	interface GlobalPasteHintProps {
+		onClose?: () => void;  // 将 onClose 设为可选属性
+	}
+	// 处理关闭提示的函数
+	const handleClosePasteHint = () => {
+		setShowPasteHint(false);
+	};
+	// 添加鼠标悬停时暂停隐藏的功能
+	const [isPaused, setIsPaused] = useState(false);
+	const GlobalPasteHint = ({ onClose }: GlobalPasteHintProps) => (
+		<Box
+			position="fixed"
+			top={4} // 改为顶部固定
+			left="50%"
+			transform="translateX(-50%)"
+			bg="rgba(0, 0, 0, 0.85)"
+			color="white"
+			px={6}
+			py={3}
+			borderRadius="lg"
+			fontSize="sm"
+			boxShadow="lg"
+			zIndex={1000}
+			animation="slideDown 0.3s ease-in-out"
+			display="flex"
+			alignItems="center"
+			gap={3}
+			backdropFilter="blur(8px)"
+			border="1px solid rgba(255, 255, 255, 0.1)"
+			sx={{
+				'@keyframes slideDown': {
+					'0%': {
+						opacity: 0,
+						transform: 'translate(-50%, -20px)',
+					},
+					'100%': {
+						opacity: 1,
+						transform: 'translate(-50%, 0)',
+					},
+				},
+			}}
+			onMouseEnter={() => setIsPaused(true)}
+			onMouseLeave={() => {
+				setIsPaused(false);
+				// 鼠标离开后 3 秒隐藏
+				setTimeout(() => setShowPasteHint(false), 3000);
+			}}
+		>
+			<Flex alignItems="center" gap={3}>
+				<Box as="span" fontSize="lg">💡</Box>
+				<Text>
+					You can paste images from clipboard at any time (Ctrl/Cmd + V)
+				</Text>
+				<IconButton
+					aria-label="Close hint"
+					icon={<CloseIcon />}
+					size="xs"
+					variant="ghost"
+					colorScheme="whiteAlpha"
+					_hover={{
+						bg: 'whiteAlpha.200',
+						transform: 'scale(1.1)',
+					}}
+					transition="all 0.2s"
+					onClick={onClose}
+				/>
+			</Flex>
+			{!isPaused && (
+				<Box
+					position="absolute"
+					bottom={0}
+					left={0}
+					height="2px"
+					bg="blue.400"
+					animation="progressBar 8s linear"
+					sx={{
+						'@keyframes progressBar': {
+							'0%': { width: '100%' },
+							'100%': { width: '0%' },
+						},
+					}}
+				/>
+			)}
+		</Box>
+	);
+	// 添加粘贴状态提示组件
+	const [isPasting, setIsPasting] = useState(false);
+
+	// 修改粘贴处理函数中的相关部分
+	const handlePaste = async (e: ClipboardEvent) => {
+		// ... 其他代码 ...
+		try {
+			setIsPasting(true);
+			// ... 处理粘贴逻辑 ...
+		} catch (error) {
+			// ... 错误处理 ...
+		} finally {
+			setIsPasting(false);
+		}
+	};
+	// 添加状态控制提示的显示
+	const [showPasteHint, setShowPasteHint] = useState(true);
+	// 组件挂载时启动定时器，几秒后隐藏提示
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			setShowPasteHint(false);
+		}, 8000); // 8秒后自动隐藏
+
+		return () => clearTimeout(timer);
+	}, []);
+
+	// 当用户开始拖拽文件时显示提示
+	useEffect(() => {
+		if (isDragging) {
+			setShowPasteHint(true);
+			// 拖拽结束后几秒隐藏提示
+			const timer = setTimeout(() => {
+				setShowPasteHint(false);
+			}, 8000);
+			return () => clearTimeout(timer);
+		}
+	}, [isDragging]);
+
+	const [pdfFiles, setPdfFiles] = useState<PDFFile[]>([]);
+	const [selectedPdf, setSelectedPdf] = useState<PDFFile | null>(null);
+	const [numPages, setNumPages] = useState<number>(0);
 	return (
 		<div className="min-h-screen w-full bg-[#131318]">
+			{showPasteHint && <GlobalPasteHint onClose={handleClosePasteHint} />}
 			<div className="flex flex-col min-h-screen w-full bg-[#131318]">
 				<div className="flex flex-col items-center p-4 md:p-8 grow">
 					<Flex
@@ -825,7 +895,7 @@ export function ChatWindow(props: { conversationId: string }) {
 						marginTop={messages.length > 0 ? "" : "64px"}
 					>
 						<Heading fontSize={messages.length > 0 ? "2xl" : "3xl"} fontWeight={"medium"} mb={1} color={"white"}>
-							Ξ Ethereum Address Analysis 💼
+							Ξ Musse AI 💼
 						</Heading>
 						<Heading
 							fontSize="xl"
@@ -897,47 +967,64 @@ export function ChatWindow(props: { conversationId: string }) {
 						<Select
 							value={uploadType}
 							onChange={(e) => {
-								setUploadType(e.target.value as "file" | "url" | "pdf");
+								setUploadType(e.target.value as "file" | "url");
 							}}
 							mb={2}
 							color="white"
 						>
-							<option value="file">Upload Image Files</option>
+							<option value="file">Upload Files</option>
 							<option value="url">Input Image URLs</option>
-							<option value="pdf">Upload PDF Files</option>
 						</Select>
 
 						{uploadType === "file" && (
-							<InputGroup>
-								<div
-									className={`w-full relative ${isDragging ? 'border-2 border-dashed border-blue-500' : ''}`}
-									onDragEnter={handleDragEnter}
-									onDragLeave={handleDragLeave}
-									onDragOver={handleDragOver}
-									onDrop={handleDrop}
-								>
+							<Box
+								className={`w-full ${isDragging ? 'border-2 border-dashed border-blue-500 bg-blue-500/10' : 'border-2 border-dashed border-gray-600'}`}
+								borderRadius="lg"
+								p={6}
+								mb={4}
+								transition="all 0.3s ease"
+								onDragEnter={handleDragEnter}
+								onDragLeave={handleDragLeave}
+								onDragOver={handleDragOver}
+								onDrop={handleDrop}
+							>
+								<VStack spacing={4} justify="center" align="center" minHeight="200px">
 									<input
 										type="file"
-										accept="image/*"
+										accept="image/*,.pdf"
 										onChange={handleFileUpload}
 										style={{ display: 'none' }}
 										id="image-upload"
 										multiple
 									/>
-									<Button
-										as="label"
-										htmlFor="image-upload"
-										colorScheme="blue"
-										width="100%"
-										isDisabled={imageFiles.length + imageUrls.length >= MAX_FILES}
-									>
-										{isDragging ? 'Drop images here' : `Choose Image Files (${imageFiles.length + imageUrls.length}/${MAX_FILES})`}
-									</Button>
-									<Text fontSize="sm" color="gray.400" mt={2} textAlign="center">
-										Drag & drop images here or paste from clipboard
+									<Box textAlign="center">
+										<Text color="gray.400" mb={2}>
+											{isDragging
+												? 'Drop your files here'
+												: 'Drag & drop images or PDFs here or'}
+										</Text>
+										<Button
+											as="label"
+											htmlFor="image-upload"
+											colorScheme="blue"
+											size="lg"
+											leftIcon={<FaUpload />}
+											isDisabled={imageFiles.length + imageUrls.length + pdfFiles.length >= MAX_FILES}
+										>
+											Choose Files
+										</Button>
+									</Box>
+									<Text fontSize="sm" color="gray.400" textAlign="center">
+										{`${imageFiles.length + imageUrls.length + pdfFiles.length}/${MAX_FILES} files uploaded`}
 									</Text>
-								</div>
-							</InputGroup>
+									<Text fontSize="sm" color="gray.400">
+										Supports: JPG, PNG, GIF, WEBP (Max 5MB) | PDF (Max 10MB)
+									</Text>
+									<Text fontSize="sm" color="gray.400">
+										You can also paste images from clipboard
+									</Text>
+								</VStack>
+							</Box>
 						)}
 
 						{uploadType === "url" && (
@@ -967,184 +1054,9 @@ export function ChatWindow(props: { conversationId: string }) {
 							</VStack>
 						)}
 
-						{uploadType === "pdf" && (
-							<VStack spacing={2} width="100%">
-								<div
-									className={`w-full relative ${isDragging
-											? 'border-2 border-dashed border-blue-500 bg-blue-500/10'
-											: 'border-2 border-dashed border-gray-600'
-										}`}
-									onDragEnter={handleDragEnter}
-									onDragLeave={handleDragLeave}
-									onDragOver={handleDragOver}
-									onDrop={handleDrop}
-									style={{
-										minHeight: "200px", // 增加最小高度
-										display: "flex",
-										flexDirection: "column",
-										justifyContent: "center",
-										alignItems: "center",
-										padding: "2rem",
-										transition: "all 0.2s ease",
-										borderRadius: "8px"
-									}}
-								>
-									<input
-										type="file"
-										accept=".pdf"
-										onChange={handlePdfUpload}
-										style={{ display: 'none' }}
-										id="pdf-upload"
-										multiple
-									/>
-									<BiBot size={48} color={isDragging ? "#3182ce" : "#718096"} /> {/* 添加图标 */}
-									<Button
-										as="label"
-										htmlFor="pdf-upload"
-										colorScheme="blue"
-										width="auto"
-										minWidth="200px"
-										mt={4}
-										isDisabled={pdfFiles.length >= MAX_PDFS}
-										variant={isDragging ? "solid" : "outline"}
-									>
-										{isDragging ? 'Drop PDF files here' : `Choose PDF Files (${pdfFiles.length}/${MAX_PDFS})`}
-									</Button>
-									<Text
-										fontSize="sm"
-										color={isDragging ? "blue.300" : "gray.400"}
-										mt={4}
-										textAlign="center"
-									>
-										Drag & drop PDF files here or click to select
-									</Text>
-									<Text fontSize="xs" color="gray.500" mt={2}>
-										Maximum file size: {(MAX_PDF_SIZE / (1024 * 1024)).toFixed(0)}MB
-									</Text>
-								</div>
-
-								{/* PDF预览区域 */}
-								{pdfFiles.length > 0 && (
-									<Box mt={4} position="relative" className="bg-[#131318] w-full">
-										<Box
-											position="relative"
-											borderWidth="1px"
-											borderColor="gray.600"
-											borderRadius="md"
-											p={4}
-											className="bg-[#131318]"
-										>
-											{/* 清除所有PDF按钮 */}
-											<Flex
-												position="absolute"
-												top={2}
-												right={2}
-												zIndex={2}
-											>
-												<Button
-													leftIcon={<DeleteIcon />}
-													size="sm"
-													variant="solid"
-													colorScheme="red"
-													onClick={clearAllPdfs}
-													transition="all 0.2s"
-													_hover={{
-														transform: 'scale(1.05)',
-														bg: 'red.600'
-													}}
-													_active={{
-														bg: 'red.700'
-													}}
-													borderRadius="md"
-													px={4}
-													opacity={0.9}
-													backdropFilter="blur(8px)"
-												>
-													Clear All PDFs ({pdfFiles.length})
-												</Button>
-											</Flex>
-
-											{/* PDF文件网格 */}
-											<Grid
-												templateColumns={{
-													base: "repeat(auto-fill, minmax(250px, 1fr))", // 增加卡片最小宽度
-													md: "repeat(auto-fill, minmax(300px, 1fr))"
-												}}
-												gap={6} // 增加间距
-												mt={8} // 增加顶部间距，为清除按钮留出空间
-											>
-												{pdfFiles.map((pdf) => (
-													<Box
-														key={pdf.id}
-														position="relative"
-														borderWidth="1px"
-														borderColor="gray.600"
-														borderRadius="md"
-														p={4} // 增加内边距
-														bg="gray.800"
-														transition="all 0.2s"
-														_hover={{
-															transform: 'translateY(-2px)',
-															boxShadow: 'lg'
-														}}
-													>
-														<Flex align="center" justify="space-between">
-															<Box flex="1">
-																<Text color="white" noOfLines={1} title={pdf.name} fontSize="lg">
-																	{pdf.name}
-																</Text>
-																<Text color="gray.400" fontSize="sm">
-																	{(pdf.size / (1024 * 1024)).toFixed(2)} MB
-																</Text>
-															</Box>
-															<IconButton
-																aria-label="Remove PDF"
-																icon={<CloseIcon />}
-																size="sm"
-																variant="ghost"
-																colorScheme="red"
-																onClick={() => removePdf(pdf.id)}
-															/>
-														</Flex>
-														{/* PDF图标区域 */}
-														<Box
-															mt={3}
-															p={4}
-															bg="gray.700"
-															borderRadius="md"
-															display="flex"
-															alignItems="center"
-															justifyContent="center"
-															height="100px" // 固定高度
-														>
-															<Box
-																as="i"
-																className="fas fa-file-pdf"
-																color="red.400"
-																fontSize="4xl"
-															/>
-														</Box>
-
-														<Button
-															size="md" // 增大按钮尺寸
-															width="full"
-															mt={4}
-															colorScheme="blue"
-															leftIcon={<FaTools />} // 添加图标
-															onClick={() => window.open(URL.createObjectURL(pdf.file), '_blank')}
-														>
-															Preview PDF
-														</Button>
-													</Box>
-												))}
-											</Grid>
-										</Box>
-									</Box>
-								)}
-							</VStack>
-						)}
 						{/* 图片预览网格 */}
-						{(imageFiles.length > 0 || imageUrls.length > 0) && (
+						// 在图片预览网格后添加PDF文件列表
+						{(imageFiles.length > 0 || imageUrls.length > 0 || pdfFiles.length > 0) && (
 							<Box mt={4} position="relative" className="bg-[#131318] w-full">
 								<Box
 									position="relative"
@@ -1154,7 +1066,6 @@ export function ChatWindow(props: { conversationId: string }) {
 									p={4}
 									className="bg-[#131318]"
 								>
-									{/* Clean All 按钮 */}
 									<Flex
 										position="absolute"
 										top={2}
@@ -1166,7 +1077,7 @@ export function ChatWindow(props: { conversationId: string }) {
 											size="sm"
 											variant="solid"
 											colorScheme="red"
-											onClick={clearAllImages}
+											onClick={clearAllFiles}
 											transition="all 0.2s"
 											_hover={{
 												transform: 'scale(1.05)',
@@ -1180,7 +1091,7 @@ export function ChatWindow(props: { conversationId: string }) {
 											opacity={0.9}
 											backdropFilter="blur(8px)"
 										>
-											Clear All ({imageFiles.length + imageUrls.length})
+											Clear All ({imageFiles.length + imageUrls.length + pdfFiles.length})
 										</Button>
 									</Flex>
 
@@ -1194,15 +1105,22 @@ export function ChatWindow(props: { conversationId: string }) {
 										mt={2}
 										className="bg-[#131318]"
 									>
+										{/* 显示上传的图片文件 */}
 										{imageFiles.map((img) => (
-											<Box key={img.id} position="relative">
+											<Box
+												key={img.id}
+												position="relative"
+												borderRadius="md"
+												overflow="hidden"
+												borderWidth="1px"
+												borderColor="gray.600"
+											>
 												<Image
 													src={img.previewUrl}
-													alt="Preview"
-													maxH="150px"
-													objectFit="contain"
+													alt="Uploaded image"
 													width="100%"
-													borderRadius="md"
+													height="150px"
+													objectFit="cover"
 												/>
 												<IconButton
 													aria-label="Remove image"
@@ -1211,19 +1129,40 @@ export function ChatWindow(props: { conversationId: string }) {
 													position="absolute"
 													top={1}
 													right={1}
+													colorScheme="red"
+													opacity={0.8}
+													_hover={{ opacity: 1 }}
 													onClick={() => removeImage(img.id, "file")}
 												/>
 											</Box>
 										))}
+
+										{/* 显示URL图片 */}
 										{imageUrls.map((img) => (
-											<Box key={img.id} position="relative">
+											<Box
+												key={img.id}
+												position="relative"
+												borderRadius="md"
+												overflow="hidden"
+												borderWidth="1px"
+												borderColor="gray.600"
+											>
 												<Image
 													src={img.url}
-													alt="Preview"
-													maxH="150px"
-													objectFit="contain"
+													alt="URL image"
 													width="100%"
-													borderRadius="md"
+													height="150px"
+													objectFit="cover"
+													fallback={<Box
+														width="100%"
+														height="150px"
+														bg="gray.700"
+														display="flex"
+														alignItems="center"
+														justifyContent="center"
+													>
+														<Text color="gray.400">Failed to load</Text>
+													</Box>}
 												/>
 												<IconButton
 													aria-label="Remove image"
@@ -1232,11 +1171,131 @@ export function ChatWindow(props: { conversationId: string }) {
 													position="absolute"
 													top={1}
 													right={1}
+													colorScheme="red"
+													opacity={0.8}
+													_hover={{ opacity: 1 }}
 													onClick={() => removeImage(img.id, "url")}
 												/>
 											</Box>
 										))}
 									</Grid>
+
+									{/* PDF文件网格 */}
+									{pdfFiles.length > 0 && (
+										<Box mt={4}>
+											<Text color="white" fontWeight="bold" mb={3}>PDF Files</Text>
+											<Grid
+												templateColumns={{
+													base: "repeat(auto-fill, minmax(200px, 1fr))",
+													md: "repeat(auto-fill, minmax(250px, 1fr))"
+												}}
+												gap={4}
+											>
+												{pdfFiles.map((pdf) => (
+													<Box
+														key={pdf.id}
+														bg="whiteAlpha.50"
+														borderRadius="lg"
+														overflow="hidden"
+														borderWidth="1px"
+														borderColor="gray.600"
+														transition="all 0.2s"
+														_hover={{
+															transform: 'translateY(-2px)',
+															shadow: 'lg',
+															borderColor: 'blue.400'
+														}}
+													>
+														<Box p={4} position="relative">
+															{/* PDF 图标和文件名区域 */}
+															<Flex align="center" mb={2}>
+																<Box
+																	bg="red.500"
+																	p={3}
+																	borderRadius="md"
+																	mr={3}
+																>
+																	<Icon as={FaFilePdf} color="white" boxSize={6} />
+																</Box>
+																<VStack align="start" spacing={0} flex={1}>
+																	<Text
+																		color="white"
+																		fontSize="sm"
+																		fontWeight="medium"
+																		noOfLines={1}
+																		title={pdf.name}
+																	>
+																		{pdf.name}
+																	</Text>
+																	<Text color="gray.400" fontSize="xs">
+																		{(pdf.size / 1024 / 1024).toFixed(2)} MB
+																	</Text>
+																</VStack>
+															</Flex>
+
+															{/* PDF 预览区域 */}
+															<Box
+																bg="whiteAlpha.100"
+																p={3}
+																borderRadius="md"
+																mb={2}
+																height="150px"
+																overflow="hidden"
+															>
+																<Document
+																	file={URL.createObjectURL(pdf.file)}
+																	onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+																	loading={
+																		<Center h="full">
+																			<Spinner />
+																		</Center>
+																	}
+																	error={
+																		<Center h="full">
+																			<Text color="red.400">Failed to load PDF</Text>
+																		</Center>
+																	}
+																>
+																	<Page
+																		pageNumber={1}
+																		width={200}
+																		renderTextLayer={false}
+																		renderAnnotationLayer={false}
+																	/>
+																</Document>
+															</Box>
+
+															{/* 操作按钮区域 */}
+															<Flex justify="space-between" align="center">
+																<Button
+																	size="sm"
+																	leftIcon={<Icon as={FaEye} />}
+																	variant="ghost"
+																	colorScheme="blue"
+																	onClick={() => {
+																		// 使用浏览器内置PDF查看器打开
+																		window.open(URL.createObjectURL(pdf.file), '_blank');
+																	}}
+																>
+																	Preview
+																</Button>
+																<IconButton
+																	aria-label="Remove PDF"
+																	icon={<CloseIcon />}
+																	size="sm"
+																	variant="ghost"
+																	colorScheme="red"
+																	onClick={() => {
+																		setPdfFiles(prev => prev.filter(file => file.id !== pdf.id));
+																	}}
+																/>
+															</Flex>
+														</Box>
+													</Box>
+												))}
+											</Grid>
+										</Box>
+									)}
 								</Box>
 							</Box>
 						)}

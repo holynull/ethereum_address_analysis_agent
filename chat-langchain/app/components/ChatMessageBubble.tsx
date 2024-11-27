@@ -30,6 +30,7 @@ export type Message = {
 	name?: string;
 	function_call?: { name: string };
 	images?: string[]; // 添加图片数组字段
+	pdfContents?: string[]; // 添加PDF内容支持
 };
 export type Feedback = {
 	feedback_id: string;

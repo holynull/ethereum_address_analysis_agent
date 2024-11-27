@@ -53,6 +53,7 @@ def create_agent_executor(
     llm_agent: Runnable,
     memory: BaseMemory,
     image_urls: list[str],
+    pdf_files: list[str],
     is_multimodal: bool = False,
 ) -> AgentExecutor:
 
@@ -75,6 +76,14 @@ def create_agent_executor(
                                 "image_url": {"url": f"{url}"},
                             }
                             for url in image_urls
+                        ],
+                        *[
+                            {
+                                "type": "media",
+                                "media_type": "application/pdf",
+                                "data": f"{pdf_base64[28:]}",
+                            }
+                            for pdf_base64 in pdf_files
                         ],
                         {
                             "type": "text",

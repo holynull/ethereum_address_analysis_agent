@@ -40,6 +40,7 @@ from langchain_core.messages import AIMessage, FunctionMessage, HumanMessage
 class Input(BaseModel):
     input: str
     image_urls: list[str]
+    pdf_files: list[str]
     chat_history: List[Union[HumanMessage, AIMessage, FunctionMessage]]
 
 
@@ -60,6 +61,7 @@ async def simple_invoke(request: Request) -> Response:
     conversation_id = body["config"]["metadata"]["conversation_id"]
     is_multimodal = body["config"]["metadata"]["is_multimodal"]
     image_urls = body["input"]["image_urls"]
+    pdf_files = body["input"]["pdf_files"]
     if conversation_id in chat_memories:
         # agent_executor = agent_executors[conversation_id]
         memory = chat_memories[conversation_id]
@@ -68,6 +70,7 @@ async def simple_invoke(request: Request) -> Response:
             memory=memory,
             is_multimodal=is_multimodal,
             image_urls=image_urls,
+            pdf_files=pdf_files,
         )
         agent_executors[conversation_id] = {
             "executor": agent_executor,
@@ -87,6 +90,7 @@ async def simple_invoke(request: Request) -> Response:
             memory=memory,
             is_multimodal=is_multimodal,
             image_urls=image_urls,
+            pdf_files=pdf_files,
         )
         chat_memories[conversation_id] = memory
         agent_executors[conversation_id] = {

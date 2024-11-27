@@ -29,6 +29,7 @@ export type Message = {
 	sources?: Source[];
 	name?: string;
 	function_call?: { name: string };
+	images?: string[]; // 添加图片数组字段
 };
 export type Feedback = {
 	feedback_id: string;
@@ -265,6 +266,31 @@ export function ChatMessageBubble(props: {
 
 	return (
 		<VStack align="start" spacing={5} pb={5}>
+			{/* 在消息内容之前添加图片显示区域 */}
+			{props.message.images && props.message.images.length > 0 && (
+				<Grid
+					templateColumns={{
+						base: "repeat(auto-fill, minmax(120px, 1fr))",
+						md: "repeat(auto-fill, minmax(150px, 1fr))"
+					}}
+					gap={4}
+					width="100%"
+					padding={2}
+				>
+					{props.message.images.map((imageUrl, index) => (
+						<Box key={index}>
+							<Image
+								src={imageUrl}
+								alt={`User uploaded image ${index + 1}`}
+								maxH="200px"
+								objectFit="contain"
+								width="100%"
+								borderRadius="md"
+							/>
+						</Box>
+					))}
+				</Grid>
+			)}
 			{!isUser && filteredSources.length > 0 && (
 				<>
 					<Flex direction={"column"} width={"100%"}>

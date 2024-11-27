@@ -329,6 +329,7 @@ export function ChatWindow(props: { conversationId: string }) {
 					id: Math.random().toString(),
 					content: messageValue,
 					role: "user" as const, // 明确指定类型
+					images:currentImages
 				} as Message
 			];
 			setTimeout(scrollToBottom, 0);

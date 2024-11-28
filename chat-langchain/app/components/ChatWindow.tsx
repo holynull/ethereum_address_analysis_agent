@@ -236,7 +236,7 @@ export function ChatWindow(props: { conversationId: string }) {
 
 
 	const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-	const MAX_FILES = 5; // 最多上传5张图片
+	const MAX_FILES = 100; // 最多上传10张图片
 
 	const convertToBase64 = (file: File): Promise<string> => {
 		return new Promise((resolve, reject) => {
@@ -453,7 +453,7 @@ export function ChatWindow(props: { conversationId: string }) {
 
 		document.addEventListener('paste', handlePaste);
 		return () => document.removeEventListener('paste', handlePaste);
-	}, [imageFiles, imageUrls]); // 只依赖图片数组，移除 uploadType 依赖
+	}, [imageFiles, imageUrls, MAX_FILES, MAX_FILE_SIZE]); // 只依赖图片数组，移除 uploadType 依赖
 
 	const sendMessage = async (message?: string) => {
 		if (messageContainerRef.current) {
@@ -895,7 +895,7 @@ export function ChatWindow(props: { conversationId: string }) {
 						marginTop={messages.length > 0 ? "" : "64px"}
 					>
 						<Heading fontSize={messages.length > 0 ? "2xl" : "3xl"} fontWeight={"medium"} mb={1} color={"white"}>
-							Ξ Musse AI 💼
+							Ξ Musse AI Assistant 💼
 						</Heading>
 						<Heading
 							fontSize="xl"
@@ -1055,7 +1055,6 @@ export function ChatWindow(props: { conversationId: string }) {
 						)}
 
 						{/* 图片预览网格 */}
-						// 在图片预览网格后添加PDF文件列表
 						{(imageFiles.length > 0 || imageUrls.length > 0 || pdfFiles.length > 0) && (
 							<Box mt={4} position="relative" className="bg-[#131318] w-full">
 								<Box

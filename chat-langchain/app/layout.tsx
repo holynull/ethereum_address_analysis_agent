@@ -24,8 +24,7 @@ export default function RootLayout({
 			</head>
 			<body className={`${inter.className} h-full`}>
 				<div
-					className="flex flex-col h-full md:p-8"
-					style={{ background: "rgb(38, 38, 41)" }}
+					className="flex flex-col h-full md:p-8 bg-[#131318]"
 				>
 					{children}
 				</div>

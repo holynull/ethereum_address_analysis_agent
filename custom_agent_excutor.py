@@ -195,4 +195,14 @@ class CustomToolCallingAgentExecutor(Runnable):
             exclude_types=exclude_types,
             **kwargs,
         ):
+            event = output["event"]
+            if event == "on_chain_end" and "output" in output["data"]:
+                _output = output["data"]["output"]
+                if (
+                    "output" in _output
+                    and len(_output["output"]) > 0
+                    and "text" in _output["output"][0]
+                ):
+                    # Anthropic Claude
+                    print("\n" + _output["output"][0]["text"] + "\n")
             yield output

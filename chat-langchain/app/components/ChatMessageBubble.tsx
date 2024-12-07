@@ -71,12 +71,13 @@ const createAnswerElements = (
 		React.SetStateAction<boolean[]>
 	>,
 ) => {
+	console.log(content)
 	const matches = Array.from(content.matchAll(/\[\^?(\d+)\^?\]/g));
 	const elements: JSX.Element[] = [];
 	let prevIndex = 0;
 	DOMPurify.setConfig({
-		ALLOWED_TAGS: ['iframe', 'pre', 'code'],
-		ALLOWED_ATTR: ['src', 'width', 'height', 'frameborder', 'allowfullscreen','style','class']
+		ALLOWED_TAGS: ['iframe', 'pre', 'code', 'p', 'ol', 'li', 'ul','span'],
+		ALLOWED_ATTR: ['src', 'width', 'height', 'frameborder', 'allowfullscreen', 'style', 'class']
 	});
 	matches.forEach((match) => {
 		const sourceNum = parseInt(match[1], 10);

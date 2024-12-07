@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Image, Input, VStack, Text, Grid, Center } from "@chakra-ui/react";
+import { Button, Image, Input, VStack, Text, Grid, Center, Tooltip } from "@chakra-ui/react";
 import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { RemoteRunnable } from "langchain/runnables/remote";
@@ -31,7 +31,7 @@ import { apiBaseUrl } from "../utils/constants";
 import { ChatPromptValue } from "@langchain/core/prompt_values"
 import { AIMessage, FunctionMessage, AIMessageChunk, FunctionMessageChunk } from "@langchain/core/messages"
 import { forEach } from "lodash";
-import { FaCircleNotch, FaTools, FaKeyboard, FaCheck, FaUpload, FaFilePdf, FaEye } from 'react-icons/fa';
+import { FaCircleNotch, FaTools, FaKeyboard, FaCheck, FaUpload, FaFilePdf, FaEye, FaLightbulb, FaPlus, FaTimes } from 'react-icons/fa';
 import { BiBot } from 'react-icons/bi';
 import { Document, Page, pdfjs } from 'react-pdf';
 // import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.entry';
@@ -121,6 +121,22 @@ export function ChatWindow(props: { conversationId: string }) {
 	const [usedImages, setUsedImages] = useState<Set<string>>(new Set());
 
 	const [isDragging, setIsDragging] = useState(false);
+
+	const [showFileUpload, setShowFileUpload] = useState(false);
+
+	const openFileUpload = () => {
+		if (!showFileUpload)
+			setShowFileUpload(!showFileUpload);
+	};
+
+	const closeFileUpload = () => {
+		if (showFileUpload) {
+			// 如果当前是显示状态，在隐藏之前清空所有文件
+			clearAllFiles();
+		}
+		if (showFileUpload)
+			setShowFileUpload(!showFileUpload);
+	};
 
 	// 添加处理拖拽的函数
 	const handleDragEnter = (e: React.DragEvent) => {
@@ -494,16 +510,62 @@ export function ChatWindow(props: { conversationId: string }) {
 		let sources: Source[] | undefined = undefined;
 		let messageIndex: number | null = null;
 
+		const markdownStyles = {
+			code: `
+			  background-color: #1e1e2e;
+			  color: #cdd6f4;
+			  padding: 0.2em 0.4em;
+			  border-radius: 3px;
+			  font-size: 0.9em;
+			  font-family: 'Fira Code', monospace;
+			`,
+			pre: `
+			  background-color: #1e1e2e;
+			  padding: 1em;
+			  border-radius: 8px;
+			  overflow-x: auto;
+			  margin: 1em 0;
+			  border: 1px solid #313244;
+			`,
+			blockquote: `
+			  border-left: 4px solid #7f849c;
+			  margin: 1em 0;
+			  padding: 0.5em 1em;
+			  background-color: #27273a;
+			  border-radius: 4px;
+			`,
+			table: `
+			  width: 100%;
+			  border-collapse: collapse;
+			  margin: 1em 0;
+			`,
+			th: `
+			  background-color: #313244;
+			  padding: 0.75em;
+			  border: 1px solid #45475a;
+			  text-align: left;
+			`,
+			td: `
+			  padding: 0.75em;
+			  border: 1px solid #45475a;
+			`,
+			link: `
+			  color: #89b4fa;
+			  text-decoration: none;
+			  &:hover {
+				text-decoration: underline;
+			  }
+			`,
+			list: `
+			  padding-left: 1.5em;
+			  margin: 0.5em 0;
+			`,
+			listItem: `
+			  margin: 0.3em 0;
+			`,
+		};
 		let renderer = new Renderer();
-		renderer.paragraph = (text) => {
-			return text + "\n";
-		};
-		renderer.list = (text) => {
-			return `${text}\n\n`;
-		};
-		renderer.listitem = (text) => {
-			return `\n• ${text}`;
-		};
+
 		renderer.code = (code, language) => {
 			const validLanguage = hljs.getLanguage(language || "")
 				? language
@@ -514,17 +576,77 @@ export function ChatWindow(props: { conversationId: string }) {
 			).value;
 			return `<pre class="highlight bg-gray-700" style="padding: 5px; border-radius: 5px; overflow: auto; overflow-wrap: anywhere; white-space: pre-wrap; max-width: 100%; display: block; line-height: 1.2"><code class="${language}" style="color: #d6e2ef; font-size: 12px; ">${highlightedCode}</code></pre>`;
 		};
-		// 添加对原始 HTML 的支持
+
+		renderer.blockquote = (quote) => {
+			return `<blockquote style="${markdownStyles.blockquote}">${quote}</blockquote>`;
+		};
+
+		renderer.table = (header, body) => {
+			return `<table style="${markdownStyles.table}">
+			  <thead>${header}</thead>
+			  <tbody>${body}</tbody>
+			</table>`;
+		};
+
+		renderer.tablerow = (content) => {
+			return `<tr>${content}</tr>`;
+		};
+
+		renderer.tablecell = (content, flags) => {
+			const type = flags.header ? 'th' : 'td';
+			const style = flags.header ? markdownStyles.th : markdownStyles.td;
+			return `<${type} style="${style}">${content}</${type}>`;
+		};
+
+		renderer.link = (href, title, text) => {
+			return `<a href="${href}" title="${title || ''}" 
+			  style="${markdownStyles.link}" 
+			  target="_blank" 
+			  rel="noopener noreferrer">${text}</a>`;
+		};
+
+		renderer.list = (body, ordered) => {
+			const type = ordered ? 'ol' : 'ul';
+			return `<${type} style="${markdownStyles.list}">${body}</${type}>`;
+		};
+
+		renderer.listitem = (text) => {
+			return `<li style="${markdownStyles.listItem}">${text}</li>`;
+		};
 		renderer.html = (html) => {
 			console.log(html)
 			// 这里可以添加一些验证逻辑，例如只允许特定的 iframe
-			if (html.startsWith('<iframe') && html.includes('musse.ai')) {
-				return html;
-			}
+			// if (html.startsWith('<iframe') && html.includes('musse.ai')) {
+				// return html;
+			// }
 			// 对于其他 HTML，你可以选择返回空字符串、原始 HTML 或经过转义的 HTML
-			return ''; // 或者 return html; 或者 return marked.escapeHtml(html);
+			return html; // 或者 return html; 或者 return marked.escapeHtml(html);
 		};
-		marked.setOptions({ renderer });
+		// 设置 marked 选项
+		marked.setOptions({
+			renderer,
+			highlight: function (code, language) {
+				if (language && hljs.getLanguage(language)) {
+					try {
+						return hljs.highlight(code, {
+							language: language,
+							ignoreIllegals: true
+						}).value;
+					} catch (err) {
+						console.error(err);
+						return code;
+					}
+				}
+				return code;
+			},
+			pedantic: false,
+			gfm: true,
+			breaks: true,
+			sanitize: false,
+			smartLists: true,
+			smartypants: false,
+			xhtml: false
+		});
 
 
 		try {
@@ -770,77 +892,63 @@ export function ChatWindow(props: { conversationId: string }) {
 	const GlobalPasteHint = ({ onClose }: GlobalPasteHintProps) => (
 		<Box
 			position="fixed"
-			top={4} // 改为顶部固定
-			left="50%"
-			transform="translateX(-50%)"
-			bg="rgba(0, 0, 0, 0.85)"
+			top={0}
+			left={0}
+			right={0}
+			bg="rgba(0, 0, 0, 0.9)"
 			color="white"
-			px={6}
-			py={3}
-			borderRadius="lg"
-			fontSize="sm"
-			boxShadow="lg"
+			py={2}
 			zIndex={1000}
-			animation="slideDown 0.3s ease-in-out"
-			display="flex"
-			alignItems="center"
-			gap={3}
 			backdropFilter="blur(8px)"
-			border="1px solid rgba(255, 255, 255, 0.1)"
-			sx={{
-				'@keyframes slideDown': {
-					'0%': {
-						opacity: 0,
-						transform: 'translate(-50%, -20px)',
-					},
-					'100%': {
-						opacity: 1,
-						transform: 'translate(-50%, 0)',
-					},
-				},
-			}}
+			borderBottom="1px solid rgba(255, 255, 255, 0.1)"
+			transition="all 0.3s ease"
 			onMouseEnter={() => setIsPaused(true)}
 			onMouseLeave={() => {
 				setIsPaused(false);
-				// 鼠标离开后 3 秒隐藏
 				setTimeout(() => setShowPasteHint(false), 3000);
 			}}
 		>
-			<Flex alignItems="center" gap={3}>
-				<Box as="span" fontSize="lg">💡</Box>
-				<Text>
+			<Flex
+				maxW="container.xl"
+				mx="auto"
+				px={4}
+				justify="center"
+				align="center"
+				gap={2}
+			>
+				<Icon as={FaLightbulb} color="yellow.400" />
+				<Text fontSize="sm" fontWeight="medium">
 					You can paste images from clipboard at any time (Ctrl/Cmd + V)
 				</Text>
+				{!isPaused && (
+					<Box
+						position="absolute"
+						bottom={0}
+						left={0}
+						height="2px"
+						bg="blue.400"
+						animation="progressBar 8s linear"
+						sx={{
+							'@keyframes progressBar': {
+								'0%': { width: '100%' },
+								'100%': { width: '0%' },
+							},
+						}}
+					/>
+				)}
 				<IconButton
 					aria-label="Close hint"
 					icon={<CloseIcon />}
 					size="xs"
 					variant="ghost"
 					colorScheme="whiteAlpha"
-					_hover={{
-						bg: 'whiteAlpha.200',
-						transform: 'scale(1.1)',
-					}}
-					transition="all 0.2s"
 					onClick={onClose}
+					ml={2}
+					_hover={{
+						bg: 'whiteAlpha.200'
+					}}
 				/>
 			</Flex>
-			{!isPaused && (
-				<Box
-					position="absolute"
-					bottom={0}
-					left={0}
-					height="2px"
-					bg="blue.400"
-					animation="progressBar 8s linear"
-					sx={{
-						'@keyframes progressBar': {
-							'0%': { width: '100%' },
-							'100%': { width: '0%' },
-						},
-					}}
-				/>
-			)}
 		</Box>
 	);
 	// 添加粘贴状态提示组件
@@ -887,14 +995,28 @@ export function ChatWindow(props: { conversationId: string }) {
 	return (
 		<div className="min-h-screen w-full bg-[#131318]">
 			{showPasteHint && <GlobalPasteHint onClose={handleClosePasteHint} />}
-			<div className="flex flex-col min-h-screen w-full bg-[#131318]">
-				<div className="flex flex-col items-center p-4 md:p-8 grow">
+			<div className="flex flex-col min-h-screen w-full bg-[#131318] overflow-x-hidden">
+				<div className="flex flex-col items-center p-4 md:p-8 grow w-full max-w-[1200px] mx-auto">
 					<Flex
 						direction={"column"}
 						alignItems={"center"}
-						marginTop={messages.length > 0 ? "" : "64px"}
+						marginTop={messages.length > 0 ? "2" : "8"}
+						mb={6}
+						position="sticky"
+						top={0}
+						bg="rgba(19, 19, 24, 0.95)"
+						backdropFilter="blur(8px)"
+						zIndex={10}
+						width="100%"
+						py={4}
 					>
-						<Heading fontSize={messages.length > 0 ? "2xl" : "3xl"} fontWeight={"medium"} mb={1} color={"white"}>
+						<Heading
+							fontSize={messages.length > 0 ? "2xl" : "3xl"}
+							fontWeight={"medium"}
+							mb={2}
+							color={"white"}
+							textAlign="center"
+						>
 							Ξ Musse AI Assistant 💼
 						</Heading>
 						<Heading
@@ -935,7 +1057,7 @@ export function ChatWindow(props: { conversationId: string }) {
 						</div>
 					</Flex>
 					<div
-						className="flex flex-col-reverse w-full mb-2 overflow-auto scroll-smooth bg-[#131318]"
+						className="flex flex-col-reverse w-full mb-2 overflow-y-auto overflow-x-hidden scroll-smooth bg-[#131318]"
 						ref={messageContainerRef}
 						style={{
 							maxHeight: "calc(100vh - 350px)",
@@ -958,353 +1080,26 @@ export function ChatWindow(props: { conversationId: string }) {
 								))
 						}
 					</div>
-					<Flex
-						direction="column"
-						width="100%"
-						mb={4}
-						className="bg-[#131318]"
-					>
-						<Select
-							value={uploadType}
-							onChange={(e) => {
-								setUploadType(e.target.value as "file" | "url");
-							}}
-							mb={2}
-							color="white"
-						>
-							<option value="file">Upload Files</option>
-							<option value="url">Input Image URLs</option>
-						</Select>
-
-						{uploadType === "file" && (
-							<Box
-								className={`w-full ${isDragging ? 'border-2 border-dashed border-blue-500 bg-blue-500/10' : 'border-2 border-dashed border-gray-600'}`}
-								borderRadius="lg"
-								p={6}
-								mb={4}
-								transition="all 0.3s ease"
-								onDragEnter={handleDragEnter}
-								onDragLeave={handleDragLeave}
-								onDragOver={handleDragOver}
-								onDrop={handleDrop}
-							>
-								<VStack spacing={4} justify="center" align="center" minHeight="200px">
-									<input
-										type="file"
-										accept="image/*,.pdf"
-										onChange={handleFileUpload}
-										style={{ display: 'none' }}
-										id="image-upload"
-										multiple
-									/>
-									<Box textAlign="center">
-										<Text color="gray.400" mb={2}>
-											{isDragging
-												? 'Drop your files here'
-												: 'Drag & drop images or PDFs here or'}
-										</Text>
-										<Button
-											as="label"
-											htmlFor="image-upload"
-											colorScheme="blue"
-											size="lg"
-											leftIcon={<FaUpload />}
-											isDisabled={imageFiles.length + imageUrls.length + pdfFiles.length >= MAX_FILES}
-										>
-											Choose Files
-										</Button>
-									</Box>
-									<Text fontSize="sm" color="gray.400" textAlign="center">
-										{`${imageFiles.length + imageUrls.length + pdfFiles.length}/${MAX_FILES} files uploaded`}
-									</Text>
-									<Text fontSize="sm" color="gray.400">
-										Supports: JPG, PNG, GIF, WEBP (Max 5MB) | PDF (Max 10MB)
-									</Text>
-									<Text fontSize="sm" color="gray.400">
-										You can also paste images from clipboard
-									</Text>
-								</VStack>
-							</Box>
-						)}
-
-						{uploadType === "url" && (
-							<VStack spacing={2} width="100%">
-								<InputGroup>
-									<Input
-										placeholder="Enter image URL"
-										color="white"
-										onKeyDown={(e) => {
-											if (e.key === 'Enter') {
-												const input = e.target as HTMLInputElement;
-												handleUrlInput(input.value);
-												input.value = '';
-											}
-										}}
-										isDisabled={isConverting || imageFiles.length + imageUrls.length >= MAX_FILES}
-									/>
-									{isConverting && (
-										<InputRightElement>
-											<Spinner size="sm" />
-										</InputRightElement>
-									)}
-								</InputGroup>
-								<Text fontSize="sm" color="gray.400">
-									Press Enter to add URL ({imageFiles.length + imageUrls.length}/{MAX_FILES})
-								</Text>
-							</VStack>
-						)}
-
-						{/* 图片预览网格 */}
-						{(imageFiles.length > 0 || imageUrls.length > 0 || pdfFiles.length > 0) && (
-							<Box mt={4} position="relative" className="bg-[#131318] w-full">
-								<Box
-									position="relative"
-									borderWidth="1px"
-									borderColor="gray.600"
-									borderRadius="md"
-									p={4}
-									className="bg-[#131318]"
-								>
-									<Flex
-										position="absolute"
-										top={2}
-										right={2}
-										zIndex={2}
-									>
-										<Button
-											leftIcon={<DeleteIcon />}
-											size="sm"
-											variant="solid"
-											colorScheme="red"
-											onClick={clearAllFiles}
-											transition="all 0.2s"
-											_hover={{
-												transform: 'scale(1.05)',
-												bg: 'red.600'
-											}}
-											_active={{
-												bg: 'red.700'
-											}}
-											borderRadius="md"
-											px={4}
-											opacity={0.9}
-											backdropFilter="blur(8px)"
-										>
-											Clear All ({imageFiles.length + imageUrls.length + pdfFiles.length})
-										</Button>
-									</Flex>
-
-									{/* 图片网格 */}
-									<Grid
-										templateColumns={{
-											base: "repeat(auto-fill, minmax(120px, 1fr))",
-											md: "repeat(auto-fill, minmax(150px, 1fr))"
-										}}
-										gap={4}
-										mt={2}
-										className="bg-[#131318]"
-									>
-										{/* 显示上传的图片文件 */}
-										{imageFiles.map((img) => (
-											<Box
-												key={img.id}
-												position="relative"
-												borderRadius="md"
-												overflow="hidden"
-												borderWidth="1px"
-												borderColor="gray.600"
-											>
-												<Image
-													src={img.previewUrl}
-													alt="Uploaded image"
-													width="100%"
-													height="150px"
-													objectFit="cover"
-												/>
-												<IconButton
-													aria-label="Remove image"
-													icon={<CloseIcon />}
-													size="sm"
-													position="absolute"
-													top={1}
-													right={1}
-													colorScheme="red"
-													opacity={0.8}
-													_hover={{ opacity: 1 }}
-													onClick={() => removeImage(img.id, "file")}
-												/>
-											</Box>
-										))}
-
-										{/* 显示URL图片 */}
-										{imageUrls.map((img) => (
-											<Box
-												key={img.id}
-												position="relative"
-												borderRadius="md"
-												overflow="hidden"
-												borderWidth="1px"
-												borderColor="gray.600"
-											>
-												<Image
-													src={img.url}
-													alt="URL image"
-													width="100%"
-													height="150px"
-													objectFit="cover"
-													fallback={<Box
-														width="100%"
-														height="150px"
-														bg="gray.700"
-														display="flex"
-														alignItems="center"
-														justifyContent="center"
-													>
-														<Text color="gray.400">Failed to load</Text>
-													</Box>}
-												/>
-												<IconButton
-													aria-label="Remove image"
-													icon={<CloseIcon />}
-													size="sm"
-													position="absolute"
-													top={1}
-													right={1}
-													colorScheme="red"
-													opacity={0.8}
-													_hover={{ opacity: 1 }}
-													onClick={() => removeImage(img.id, "url")}
-												/>
-											</Box>
-										))}
-									</Grid>
-
-									{/* PDF文件网格 */}
-									{pdfFiles.length > 0 && (
-										<Box mt={4}>
-											<Text color="white" fontWeight="bold" mb={3}>PDF Files</Text>
-											<Grid
-												templateColumns={{
-													base: "repeat(auto-fill, minmax(200px, 1fr))",
-													md: "repeat(auto-fill, minmax(250px, 1fr))"
-												}}
-												gap={4}
-											>
-												{pdfFiles.map((pdf) => (
-													<Box
-														key={pdf.id}
-														bg="whiteAlpha.50"
-														borderRadius="lg"
-														overflow="hidden"
-														borderWidth="1px"
-														borderColor="gray.600"
-														transition="all 0.2s"
-														_hover={{
-															transform: 'translateY(-2px)',
-															shadow: 'lg',
-															borderColor: 'blue.400'
-														}}
-													>
-														<Box p={4} position="relative">
-															{/* PDF 图标和文件名区域 */}
-															<Flex align="center" mb={2}>
-																<Box
-																	bg="red.500"
-																	p={3}
-																	borderRadius="md"
-																	mr={3}
-																>
-																	<Icon as={FaFilePdf} color="white" boxSize={6} />
-																</Box>
-																<VStack align="start" spacing={0} flex={1}>
-																	<Text
-																		color="white"
-																		fontSize="sm"
-																		fontWeight="medium"
-																		noOfLines={1}
-																		title={pdf.name}
-																	>
-																		{pdf.name}
-																	</Text>
-																	<Text color="gray.400" fontSize="xs">
-																		{(pdf.size / 1024 / 1024).toFixed(2)} MB
-																	</Text>
-																</VStack>
-															</Flex>
-
-															{/* PDF 预览区域 */}
-															<Box
-																bg="whiteAlpha.100"
-																p={3}
-																borderRadius="md"
-																mb={2}
-																height="150px"
-																overflow="hidden"
-															>
-																<Document
-																	file={URL.createObjectURL(pdf.file)}
-																	onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-																	loading={
-																		<Center h="full">
-																			<Spinner />
-																		</Center>
-																	}
-																	error={
-																		<Center h="full">
-																			<Text color="red.400">Failed to load PDF</Text>
-																		</Center>
-																	}
-																>
-																	<Page
-																		pageNumber={1}
-																		width={200}
-																		renderTextLayer={false}
-																		renderAnnotationLayer={false}
-																	/>
-																</Document>
-															</Box>
-
-															{/* 操作按钮区域 */}
-															<Flex justify="space-between" align="center">
-																<Button
-																	size="sm"
-																	leftIcon={<Icon as={FaEye} />}
-																	variant="ghost"
-																	colorScheme="blue"
-																	onClick={() => {
-																		// 使用浏览器内置PDF查看器打开
-																		window.open(URL.createObjectURL(pdf.file), '_blank');
-																	}}
-																>
-																	Preview
-																</Button>
-																<IconButton
-																	aria-label="Remove PDF"
-																	icon={<CloseIcon />}
-																	size="sm"
-																	variant="ghost"
-																	colorScheme="red"
-																	onClick={() => {
-																		setPdfFiles(prev => prev.filter(file => file.id !== pdf.id));
-																	}}
-																/>
-															</Flex>
-														</Box>
-													</Box>
-												))}
-											</Grid>
-										</Box>
-									)}
-								</Box>
-							</Box>
-						)}
-					</Flex>
-					<InputGroup size="md" alignItems={"center"} className="w-full max-w-full bg-[#131318]">
+					<InputGroup size="md" alignItems={"center"} className="w-full bg-[#131318] mb-8">
 						<AutoResizeTextarea
 							value={input}
 							maxRows={5}
-							className="pr-12 w-full" // 添加宽度控制
-							marginRight={"56px"}
+							className="pr-24"
+							marginRight={"112px"}
+							sx={{
+								maxWidth: "100%",
+								overflowX: "hidden",
+								"&::-webkit-scrollbar": {
+									width: "4px",
+								},
+								"&::-webkit-scrollbar-track": {
+									background: "transparent",
+								},
+								"&::-webkit-scrollbar-thumb": {
+									background: "gray.500",
+									borderRadius: "2px",
+								},
+							}}
 							placeholder="Hello, World!"
 							textColor={"white"}
 							borderColor={"rgb(58, 58, 61)"}
@@ -1319,20 +1114,434 @@ export function ChatWindow(props: { conversationId: string }) {
 								}
 							}}
 						/>
-						<InputRightElement h="full">
-							<IconButton
-								colorScheme="blue"
-								rounded={"full"}
-								aria-label="Send"
-								icon={isLoading ? <Spinner /> : <ArrowUpIcon />}
-								type="submit"
-								onClick={(e) => {
-									e.preventDefault();
-									sendMessage();
-								}}
-							/>
+						<InputRightElement width="auto" right="2">
+							<Flex gap={2}>
+								<Tooltip
+									label="Upload files"
+									placement="top"
+								>
+									<IconButton
+										colorScheme={showFileUpload ? "gray" : "blue"}
+										rounded={"full"}
+										aria-label="Toggle file upload"
+										icon={<Icon as={FaPlus} />}
+										onClick={openFileUpload}
+										isDisabled={showFileUpload}
+										_disabled={{
+											opacity: 0.6,
+											cursor: "not-allowed",
+											bg: "gray.600",
+											_hover: {
+												bg: "gray.600"
+											}
+										}}
+									/>
+								</Tooltip>
+								<IconButton
+									colorScheme="blue"
+									rounded={"full"}
+									aria-label="Send"
+									icon={isLoading ? <Spinner /> : <ArrowUpIcon />}
+									type="submit"
+									onClick={(e) => {
+										e.preventDefault();
+										sendMessage();
+									}}
+								/>
+							</Flex>
 						</InputRightElement>
 					</InputGroup>
+					{/* 文件上传区域 */}
+					{showFileUpload && (
+						<Flex
+							direction="column"
+							width="100%"
+							mt={4}
+							bg="whiteAlpha.50" // 添加略微可见的背景色
+							borderRadius="xl" // 增加圆角
+							p={4} // 添加内边距
+							boxShadow="0 4px 6px rgba(0, 0, 0, 0.1)" // 添加微妙的阴影
+							border="1px solid"
+							borderColor="whiteAlpha.200" // 添加边框
+						>
+							<Flex
+								justify="space-between"
+								align="center"
+								mb={4}
+								borderBottom="2px"
+								borderColor="whiteAlpha.300"
+								pb={3}
+							>
+								<Select
+									value={uploadType}
+									onChange={(e) => {
+										setUploadType(e.target.value as "file" | "url");
+									}}
+									width={"240px"} // 设置固定宽度
+									variant="filled" // 使用filled变体
+									bg="whiteAlpha.50" // 设置背景色
+									borderColor="whiteAlpha.200" // 设置边框颜色
+									color="white" // 设置文字颜色
+									_hover={{
+										borderColor: "whiteAlpha.400",
+										bg: "whiteAlpha.100"
+									}}
+									_focus={{
+										borderColor: "blue.500",
+										bg: "whiteAlpha.100"
+									}}
+								>
+									<option value="file">Upload Files</option>
+									<option value="url">Input Image URLs</option>
+								</Select>
+
+								<IconButton
+									aria-label="Close upload area"
+									icon={<Icon as={FaTimes} />}
+									size="md"
+									variant="solid"
+									bg="whiteAlpha.200"
+									color="white"
+									_hover={{
+										bg: 'whiteAlpha.400',
+										transform: 'scale(1.05)'
+									}}
+									_active={{
+										bg: 'whiteAlpha.500'
+									}}
+									onClick={closeFileUpload}
+									transition="all 0.2s"
+									borderRadius="full"
+									boxShadow="md"
+								/>
+							</Flex>
+
+							{/* 图片预览网格 */}
+							{showFileUpload && (imageFiles.length > 0 || imageUrls.length > 0 || pdfFiles.length > 0) && (
+								<Box mt={4} mb={4} position="relative" className="bg-[#131318] w-full">
+									<Box
+										position="relative"
+										borderWidth="1px"
+										borderColor="gray.600"
+										borderRadius="md"
+										p={4}
+										className="bg-[#131318]"
+									>
+										<Flex
+											position="absolute"
+											top={2}
+											right={2}
+											zIndex={2}
+										>
+											<Button
+												leftIcon={<DeleteIcon />}
+												size="sm"
+												variant="solid"
+												colorScheme="red"
+												onClick={clearAllFiles}
+												transition="all 0.2s"
+												_hover={{
+													transform: 'scale(1.05)',
+													bg: 'red.600'
+												}}
+												_active={{
+													bg: 'red.700'
+												}}
+												borderRadius="md"
+												px={4}
+												opacity={0.9}
+												backdropFilter="blur(8px)"
+											>
+												Clear All ({imageFiles.length + imageUrls.length + pdfFiles.length})
+											</Button>
+										</Flex>
+
+										{/* 图片网格 */}
+										<Grid
+											templateColumns={{
+												base: "repeat(auto-fill, minmax(100px, 1fr))",
+												sm: "repeat(auto-fill, minmax(120px, 1fr))",
+												md: "repeat(auto-fill, minmax(150px, 1fr))"
+											}}
+											gap={2}
+											mt={2}
+											className="bg-[#131318] w-full"
+										>
+											{/* 显示上传的图片文件 */}
+											{imageFiles.map((img) => (
+												<Box
+													key={img.id}
+													position="relative"
+													borderRadius="md"
+													overflow="hidden"
+													borderWidth="1px"
+													borderColor="gray.600"
+												>
+													<Image
+														src={img.previewUrl}
+														alt="Uploaded image"
+														width="100%"
+														height="150px"
+														objectFit="cover"
+													/>
+													<IconButton
+														aria-label="Remove image"
+														icon={<CloseIcon />}
+														size="sm"
+														position="absolute"
+														top={1}
+														right={1}
+														colorScheme="red"
+														opacity={0.8}
+														_hover={{ opacity: 1 }}
+														onClick={() => removeImage(img.id, "file")}
+													/>
+												</Box>
+											))}
+
+											{/* 显示URL图片 */}
+											{imageUrls.map((img) => (
+												<Box
+													key={img.id}
+													position="relative"
+													borderRadius="md"
+													overflow="hidden"
+													borderWidth="1px"
+													borderColor="gray.600"
+												>
+													<Image
+														src={img.url}
+														alt="URL image"
+														width="100%"
+														height="150px"
+														objectFit="cover"
+														fallback={<Box
+															width="100%"
+															height="150px"
+															bg="gray.700"
+															display="flex"
+															alignItems="center"
+															justifyContent="center"
+														>
+															<Text color="gray.400">Failed to load</Text>
+														</Box>}
+													/>
+													<IconButton
+														aria-label="Remove image"
+														icon={<CloseIcon />}
+														size="sm"
+														position="absolute"
+														top={1}
+														right={1}
+														colorScheme="red"
+														opacity={0.8}
+														_hover={{ opacity: 1 }}
+														onClick={() => removeImage(img.id, "url")}
+													/>
+												</Box>
+											))}
+										</Grid>
+
+										{/* PDF文件网格 */}
+										{pdfFiles.length > 0 && (
+											<Box mt={4}>
+												<Text color="white" fontWeight="bold" mb={3}>PDF Files</Text>
+												<Grid
+													templateColumns={{
+														base: "repeat(auto-fill, minmax(180px, 1fr))",
+														sm: "repeat(auto-fill, minmax(200px, 1fr))",
+														md: "repeat(auto-fill, minmax(250px, 1fr))"
+													}}
+													gap={3}
+													width="100%"
+												>
+													{pdfFiles.map((pdf) => (
+														<Box
+															key={pdf.id}
+															bg="whiteAlpha.50"
+															borderRadius="lg"
+															overflow="hidden"
+															borderWidth="1px"
+															borderColor="gray.600"
+															transition="all 0.2s"
+															_hover={{
+																transform: 'translateY(-2px)',
+																shadow: 'lg',
+																borderColor: 'blue.400'
+															}}
+														>
+															<Box p={4} position="relative">
+																{/* PDF 图标和文件名区域 */}
+																<Flex align="center" mb={2}>
+																	<Box
+																		bg="red.500"
+																		p={3}
+																		borderRadius="md"
+																		mr={3}
+																	>
+																		<Icon as={FaFilePdf} color="white" boxSize={6} />
+																	</Box>
+																	<VStack align="start" spacing={0} flex={1}>
+																		<Text
+																			color="white"
+																			fontSize="sm"
+																			fontWeight="medium"
+																			noOfLines={1}
+																			title={pdf.name}
+																		>
+																			{pdf.name}
+																		</Text>
+																		<Text color="gray.400" fontSize="xs">
+																			{(pdf.size / 1024 / 1024).toFixed(2)} MB
+																		</Text>
+																	</VStack>
+																</Flex>
+
+																{/* PDF 预览区域 */}
+																<Box
+																	bg="whiteAlpha.100"
+																	p={3}
+																	borderRadius="md"
+																	mb={2}
+																	height="150px"
+																	overflow="hidden"
+																>
+																	<Document
+																		file={URL.createObjectURL(pdf.file)}
+																		onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+																		loading={
+																			<Center h="full">
+																				<Spinner />
+																			</Center>
+																		}
+																		error={
+																			<Center h="full">
+																				<Text color="red.400">Failed to load PDF</Text>
+																			</Center>
+																		}
+																	>
+																		<Page
+																			pageNumber={1}
+																			width={200}
+																			renderTextLayer={false}
+																			renderAnnotationLayer={false}
+																		/>
+																	</Document>
+																</Box>
+
+																{/* 操作按钮区域 */}
+																<Flex justify="space-between" align="center">
+																	<Button
+																		size="sm"
+																		leftIcon={<Icon as={FaEye} />}
+																		variant="ghost"
+																		colorScheme="blue"
+																		onClick={() => {
+																			// 使用浏览器内置PDF查看器打开
+																			window.open(URL.createObjectURL(pdf.file), '_blank');
+																		}}
+																	>
+																		Preview
+																	</Button>
+																	<IconButton
+																		aria-label="Remove PDF"
+																		icon={<CloseIcon />}
+																		size="sm"
+																		variant="ghost"
+																		colorScheme="red"
+																		onClick={() => {
+																			setPdfFiles(prev => prev.filter(file => file.id !== pdf.id));
+																		}}
+																	/>
+																</Flex>
+															</Box>
+														</Box>
+													))}
+												</Grid>
+											</Box>
+										)}
+									</Box>
+								</Box>
+							)}
+							{uploadType === "file" && (
+								<Box
+									className={`w-full ${isDragging ? 'border-2 border-dashed border-blue-500 bg-blue-500/10' : 'border-2 border-dashed border-gray-600'}`}
+									borderRadius="lg"
+									p={6}
+									mb={4}
+									transition="all 0.3s ease"
+									onDragEnter={handleDragEnter}
+									onDragLeave={handleDragLeave}
+									onDragOver={handleDragOver}
+									onDrop={handleDrop}
+								>
+									<VStack spacing={4} justify="center" align="center" minHeight="200px">
+										<input
+											type="file"
+											accept="image/*,.pdf"
+											onChange={handleFileUpload}
+											style={{ display: 'none' }}
+											id="image-upload"
+											multiple
+										/>
+										<Box textAlign="center">
+											<Text color="gray.400" mb={2}>
+												{isDragging
+													? 'Drop your files here'
+													: 'Drag & drop images or PDFs here or'}
+											</Text>
+											<Button
+												as="label"
+												htmlFor="image-upload"
+												colorScheme="blue"
+												size="lg"
+												leftIcon={<FaUpload />}
+												isDisabled={imageFiles.length + imageUrls.length + pdfFiles.length >= MAX_FILES}
+											>
+												Choose Files
+											</Button>
+										</Box>
+										<Text fontSize="sm" color="gray.400" textAlign="center">
+											{`${imageFiles.length + imageUrls.length + pdfFiles.length}/${MAX_FILES} files uploaded`}
+										</Text>
+										<Text fontSize="sm" color="gray.400">
+											Supports: JPG, PNG, GIF, WEBP (Max 5MB) | PDF (Max 10MB)
+										</Text>
+										<Text fontSize="sm" color="gray.400">
+											You can also paste images from clipboard
+										</Text>
+									</VStack>
+								</Box>
+							)}
+
+							{uploadType === "url" && (
+								<VStack spacing={2} width="100%">
+									<InputGroup>
+										<Input
+											placeholder="Enter image URL"
+											color="white"
+											onKeyDown={(e) => {
+												if (e.key === 'Enter') {
+													const input = e.target as HTMLInputElement;
+													handleUrlInput(input.value);
+													input.value = '';
+												}
+											}}
+											isDisabled={isConverting || imageFiles.length + imageUrls.length >= MAX_FILES}
+										/>
+										{isConverting && (
+											<InputRightElement>
+												<Spinner size="sm" />
+											</InputRightElement>
+										)}
+									</InputGroup>
+									<Text fontSize="sm" color="gray.400">
+										Press Enter to add URL ({imageFiles.length + imageUrls.length}/{MAX_FILES})
+									</Text>
+								</VStack>
+							)}
+
+						</Flex>)}
 				</div>
 			</div >
 		</div>

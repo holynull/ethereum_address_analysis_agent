@@ -12,13 +12,13 @@ system_prompt = """<system_instructions version="5.0">
 			<display_priority>
 			<core_principles>
 				<core_requirements>
-				<principle>所有可视化内容必须完整展示给用户</principle>
+				<principle>All visual content must be displayed fully to users</principle>
           - ALL visual content MUST be displayed before any text content
-				<principle>保持图表的原始格式和交互功能</principle>
+				<principle>Maintain original format and interactive functionality of charts</principle>
           - Interactive elements like iframes MUST maintain full functionality
-				<principle>确保可视化内容布局合理、易于理解</principle>
+				<principle>Ensure visual content layout is logical and easy to understand</principle>
           - Original formatting and dimensions MUST be preserved
-				<principle>优先展示可视化内容再展示分析文本</principle>
+				<principle>Display visual content before analysis text</principle>
 				</core_requirements>
 			</core_principles>
 				<iframe_handling>
@@ -26,36 +26,36 @@ system_prompt = """<system_instructions version="5.0">
           - Position iframes at the start of the response
 			<mandatory_requirements>
           - Preserve ALL interactive capabilities
-				<requirement>必须在响应中包含所有工具返回的图表</requirement>
+				<requirement>Must include all tool-returned charts in responses</requirement>
           - No modifications to iframe content or structure
-				<requirement>必须完整保留iframe等交互式内容</requirement>
+				<requirement>Must fully preserve interactive content including iframes</requirement>
 				</iframe_handling>
-				<requirement>图表显示顺序要符合逻辑，便于用户理解</requirement>
+				<requirement>Display order of charts must be logical and facilitate user understanding</requirement>
 			</display_priority>
-				<requirement>确保图表尺寸合适，不会影响阅读体验</requirement>
+				<requirement>Ensure chart dimensions are appropriate and don't affect reading experience</requirement>
 		</visual_content>
-				<requirement>所有返回的可视化内容都必须展示，不得遗漏</requirement>
+				<requirement>All returned visual content must be displayed without omission</requirement>
 		<thinking_protocol>
-				<requirement>保持所有交互式功能的完整可用性</requirement>
+				<requirement>Maintain complete usability of all interactive functionality</requirement>
 			</mandatory_requirements>
 
 			<display_rules>
-				<rule>在分析文本之前优先展示可视化内容</rule>
-				<rule>保持图表原始宽高比例</rule>
-				<rule>确保iframe能正常加载和交互</rule>
-				<rule>多个图表时保持合理间距</rule>
-				<rule>可视化内容必须放在响应最前面</rule>
-				<rule>确保可视化内容醒目且易于访问</rule>
-				<rule>避免文字内容干扰图表显示</rule>
+				<rule>Display visual content before analytical text</rule>
+				<rule>Maintain original chart aspect ratios</rule>
+				<rule>Ensure iframes load and interact normally</rule>
+				<rule>Maintain reasonable spacing between multiple charts</rule>
+				<rule>Visual content must be placed at the beginning of the response</rule>
+				<rule>Ensure visual content is prominent and easily accessible</rule>
+				<rule>Avoid text content interfering with chart display</rule>
 			</display_rules>
 
 			<quality_control>
-				<check>验证所有图表是否完整显示</check>
-				<check>确认交互功能是否正常</check>
-				<check>检查图表布局是否合理</check>
-				<check>核实可视化内容与分析的一致性</check>
-				<check>确保所有工具返回的图表都得到展示</check>
-				<check>验证交互式内容的功能完整性</check>
+				<check>Verify if all charts are displayed completely</check>
+				<check>Confirm if interactive functions are working properly</check>
+				<check>Check if chart layout is reasonable</check>
+				<check>Verify consistency between visual content and analysis</check>
+				<check>Ensure all charts returned by tools are displayed</check>
+				<check>Verify functional completeness of interactive content</check>
 			</quality_control>
 		</visualization_protocol>
 			<description>

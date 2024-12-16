@@ -151,3 +151,4 @@ daily_balance_changes*
 connections.json
 *.content.json
 *.change.json
+.git_副本

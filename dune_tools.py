@@ -932,11 +932,12 @@ def get_addres_funds_movements_of(
 
         # Remove local file
         os.remove(random_filename)
-        img_str = (
-            f"Below is the URL of the token flow analysis chart. The title of the chart is: Token {results_df['symbol'].iloc[0]} Flow Analysis for {shorten_address(address)}"
-            + "\n"
-            + f'You can use the Interactive Chart in HTML like this: <iframe src="https://musse.ai/charts/{random_filename}" width="100%" height="2000px" title="Token Flow Analysis chart"></iframe>'
-        )
+        # img_str = (
+        #     f"Below is the URL of the token flow analysis chart. The title of the chart is: Token {results_df['symbol'].iloc[0]} Flow Analysis for {shorten_address(address)}"
+        #     + "\n"
+        #     + f'You can use the Interactive Chart in HTML like this: <iframe src="https://musse.ai/charts/{random_filename}" width="100%" height="2000px" title="Token Flow Analysis chart"></iframe>'
+        # )
+        img_str = f'<iframe src="https://musse.ai/charts/{random_filename}" width="100%" height="2000px" title="Token Flow Analysis chart"></iframe>'
 
         summary = f"""
         Simple analysis summary for {shorten_address(address)}:
@@ -962,7 +963,7 @@ def get_addres_funds_movements_of(
 
         summary += "\nTo see a visual representation of this data, please check the interactive chart provided below."
 
-        return summary + "\n\n" + img_str
+        return summary, img_str
     else:
         return "No relevant data found."
 
@@ -1539,18 +1540,19 @@ def get_balances_of_address(address: str):
             )
             os.remove(random_filename)
 
-            img_str = (
-                f"Below is the URL of the balance distribution chart. The title of the chart is: Token Balance Distribution in USD."
-                + "\n"
-                + f'You can use the Interactive Chart in HTML like this: <iframe src="https://musse.ai/charts/{random_filename}" width="100%" height="800px" title="Token Balance Distribution chart"></iframe>'
-            )
+            # img_str = (
+            #     f"Below is the URL of the balance distribution chart. The title of the chart is: Token Balance Distribution in USD."
+            #     + "\n"
+            #     + f'You can use the Interactive Chart in HTML like this: <iframe src="https://musse.ai/charts/{random_filename}" width="100%" height="800px" title="Token Balance Distribution chart"></iframe>'
+            # )
+            img_str = f'\n<iframe src="https://musse.ai/charts/{random_filename}" width="100%" height="800px" title="Token Balance Distribution chart"></iframe>'
             r_arr = results_df.apply(
                 lambda row: f"Token: {row['token_symbol']}\nContract address: {row['token_address']}\n"
                 + f"Balance: {row['balance']} (USD: {row['balance_usd']} Price:${row['price_usd']})",
                 axis=1,
             ).tolist()
-            result = f"## Balances of address {address}:\n" + "\n".join(r_arr)
-            return result + "\n\n" + img_str
+            result = f"\n## Balances of address {address}:\n" + "\n".join(r_arr)
+            return result, img_str
         else:
             r_arr = results_df.apply(
                 lambda row: f"Token: {row['token_symbol']}\nContract address: {row['token_address']}\n"
@@ -1638,10 +1640,13 @@ def get_token_balance_daily_of_address(address: str, token_address: str):
         )
         os.remove(random_filename)
 
+        # img_str = (
+        #     f"Below is the URL for the daily balance change chart. The title of the chart is: Daily Balance Changes for {symbol} Token"
+        #     + "\n"
+        #     + f'You can use the Interactive Chart in HTML like this: <iframe src="https://musse.ai/charts/{random_filename}" width="100%" height="800px" title="Daily Balance Changes for {symbol} Token"></iframe>'
+        # )
         img_str = (
-            f"Below is the URL for the daily balance change chart. The title of the chart is: Daily Balance Changes for {symbol} Token"
-            + "\n"
-            + f'You can use the Interactive Chart in HTML like this: <iframe src="https://musse.ai/charts/{random_filename}" width="100%" height="800px" title="Daily Balance Changes for {symbol} Token"></iframe>'
+            +f'\n<iframe src="https://musse.ai/charts/{random_filename}" width="100%" height="800px" title="Daily Balance Changes for {symbol} Token"></iframe>'
         )
 
         if not df.empty:
@@ -1650,7 +1655,7 @@ def get_token_balance_daily_of_address(address: str, token_address: str):
                 axis=1,
             ).tolist()
             result = f"Daily Balance Changes for {symbol} Token:\n" + "\n".join(r_arr)
-            return result + "\n\n" + img_str
+            return result, img_str
         return result
     else:
         return "No daily balances data found."

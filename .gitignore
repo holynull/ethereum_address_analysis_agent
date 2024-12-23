@@ -152,3 +152,5 @@ connections.json
 *.content.json
 *.change.json
 .git_副本
+patches/
+*.patched

@@ -5,12 +5,15 @@ import { ChatWindow } from "../app/components/ChatWindow";
 import { ToastContainer } from "react-toastify";
 
 import { ChakraProvider } from "@chakra-ui/react";
+import ErrorBoundary from './components/ErrorBoundary';
 
 export default function Home() {
-  return (
-    <ChakraProvider>
-      <ToastContainer />
-      <ChatWindow conversationId={uuidv4()}></ChatWindow>
-    </ChakraProvider>
-  );
+	return (
+		<ChakraProvider>
+			<ToastContainer />
+			<ErrorBoundary>
+				<ChatWindow conversationId={uuidv4()}></ChatWindow>
+			</ErrorBoundary>
+		</ChakraProvider>
+	);
 }

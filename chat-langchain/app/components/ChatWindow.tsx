@@ -1,7 +1,7 @@
 "use client";
 
 import { Text, Tooltip } from "@chakra-ui/react";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { RemoteRunnable } from "langchain/runnables/remote";
 
@@ -22,7 +22,7 @@ import {
 	Spinner,
 	Box,
 } from "@chakra-ui/react";
-import { ArrowUpIcon, CloseIcon, Icon, } from "@chakra-ui/icons";
+import { ArrowUpIcon, CloseIcon, Icon, SmallCloseIcon } from "@chakra-ui/icons";
 import { Select } from "@chakra-ui/react";
 import { Source } from "./SourceBubble";
 import { AIMessageChunk } from "@langchain/core/messages"
@@ -65,6 +65,7 @@ export function ChatWindow(props: { conversationId: string }) {
 	};
 
 	const [isLoading, setIsLoading] = useState(false);
+	const [abortController, setAbortController] = useState<AbortController | null>(null);
 	const [llm, setLlm] = useState(
 		searchParams.get("llm") ?? "anthropic_claude_3_5_sonnet",
 	);
@@ -74,6 +75,35 @@ export function ChatWindow(props: { conversationId: string }) {
 	>([]);
 
 	const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>(ProcessingStatus.Idle);
+
+	const handleCancel = useCallback(async () => {
+		if (abortController && !abortController.signal.aborted) {
+			try {
+				await Promise.race([
+					// 将 abort() 包装在 Promise.resolve 中
+					Promise.resolve(abortController.abort()),
+					new Promise((resolve) => setTimeout(resolve, 1000))
+				]);
+			} catch (e) {
+				if (e === 'AbortError') {
+					return;
+				}
+				console.error(e);
+			} finally {
+				// 清理状态
+				setAbortController(null);
+				setIsLoading(false);
+				setProcessingStatus(ProcessingStatus.Idle);
+			}
+		}
+	}, [abortController]);
+	useEffect(() => {
+		return () => {
+			if (abortController && !abortController.signal.aborted) {
+				abortController.abort("CLEANUP");
+			}
+		};
+	}, [abortController]);
 
 	function showProcessingStatus(status: ProcessingStatus) {
 		switch (status) {
@@ -150,6 +180,9 @@ export function ChatWindow(props: { conversationId: string }) {
 			return newMessages;
 		});
 		setIsLoading(true);
+		const controller = new AbortController();
+		setAbortController(controller);
+
 
 		let accumulatedMessage = "";
 		let runId: string | undefined = undefined;
@@ -302,13 +335,13 @@ export function ChatWindow(props: { conversationId: string }) {
 				},
 			});
 			const llmDisplayName = llm ?? "openai_gpt_3_5_turbo";
-			const streams = await remoteChain.stream(
+			let streams = await remoteChain.stream(
 				{
 					input: messageValue,
 					// chat_history: chatHistory,
 					chat_history: [],
 					image_urls: currentImages,
-					pdf_files: currentPDFs
+					pdf_files: currentPDFs,
 				},
 				{
 					configurable: {
@@ -321,6 +354,7 @@ export function ChatWindow(props: { conversationId: string }) {
 						is_multimodal: currentImages.length > 0 || currentPDFs.length > 0, // 当有图片时为 true
 						images_size: currentImages.length,
 					},
+					signal: controller.signal
 				},
 				// {
 				//   includeNames: [sourceStepName],
@@ -439,6 +473,35 @@ export function ChatWindow(props: { conversationId: string }) {
 									}
 								}
 							}
+							if ("name" in _chunk && (_chunk.name == "gen_images" || _chunk.name == "generate_social_media_image")) {
+								if ("data" in _chunk) {
+									var data = _chunk.data as object;
+									if ("output" in data) {
+										// 处理生成的图片数据
+										const generatedImages = data.output as string[];
+										const imageMarkdowns = generatedImages.map(url => `${url}\n`);
+										accumulatedMessage += imageMarkdowns.join('');
+									}
+								}
+							}
+							if ("name" in _chunk && (_chunk.name == "get_balances_of_address"
+								|| _chunk.name == "get_token_balance_daily_of_address"
+								|| _chunk.name == "get_addres_funds_movements_of")) {
+								if ("data" in _chunk) {
+									var data = _chunk.data as object;
+									if ("output" in data) {
+										// 处理生成的图片数据
+										const results = data.output as string[];
+										const func_return = results.map(r => `${r}\n`);
+										let return_str = ""
+										if (func_return.length > 1) {
+											return_str = func_return[1]
+										}
+										accumulatedMessage += return_str;
+									}
+								}
+							}
+
 							sources = [...sources ? sources : [], ...currentSources];
 							setMessages((prevMessages) => {
 								let newMessages = [...prevMessages];
@@ -476,10 +539,12 @@ export function ChatWindow(props: { conversationId: string }) {
 				{ type: "ai", content: accumulatedMessage },
 			]);
 			setIsLoading(false);
+			setAbortController(null);
 			setProcessingStatus(ProcessingStatus.Idle);
 		} catch (e) {
-			setMessages((prevMessages) => prevMessages.slice(0, -1));
+			// setMessages((prevMessages) => prevMessages.slice(0, -1));
 			setIsLoading(false);
+			setAbortController(null);
 			setInput(messageValue);
 			setProcessingStatus(ProcessingStatus.Idle);
 			throw e;
@@ -524,12 +589,12 @@ export function ChatWindow(props: { conversationId: string }) {
 
 		return () => clearTimeout(timer);
 	}, []);
-	
+
 	return (
 		<div className="min-h-screen w-full bg-[#131318]">
 			{showPasteHint && <GlobalPasteHint onClose={handleClosePasteHint} />}
 			<div className="flex flex-col min-h-screen w-full bg-[#131318] overflow-x-hidden">
-				<div className="flex flex-col items-center p-4 md:p-8 grow w-full max-w-[1200px] mx-auto">
+				<div className="flex flex-col items-center p-4 md:p-8 pb-16 grow w-full max-w-[1200px] mx-auto">
 					<Flex
 						direction={"column"}
 						alignItems={"center"}
@@ -593,7 +658,7 @@ export function ChatWindow(props: { conversationId: string }) {
 						className="flex flex-col-reverse w-full mb-2 overflow-y-auto overflow-x-hidden scroll-smooth bg-[#131318]"
 						ref={messageContainerRef}
 						style={{
-							maxHeight: "calc(100vh - 350px)",
+							maxHeight: "calc(100vh - 420px)",
 							minHeight: "200px",
 							scrollBehavior: "smooth",
 							flex: 1,
@@ -613,12 +678,12 @@ export function ChatWindow(props: { conversationId: string }) {
 								))
 						}
 					</div>
-					<InputGroup size="md" alignItems={"center"} className="w-full bg-[#131318] mb-8">
+					<InputGroup size="md" alignItems={"center"} className="w-full bg-[#131318] mb-8 sticky bottom-0 z-20 py-4 pb-8">
 						<AutoResizeTextarea
 							value={input}
 							maxRows={5}
-							className="pr-24"
-							marginRight={"112px"}
+							// className="pr-24"
+							marginRight={"1.5rem"}
 							sx={{
 								maxWidth: "100%",
 								overflowX: "hidden",
@@ -647,8 +712,26 @@ export function ChatWindow(props: { conversationId: string }) {
 								}
 							}}
 						/>
-						<InputRightElement width="auto" right="2">
+						<InputRightElement width="auto" right="2" position="relative">
 							<Flex gap={2}>
+								<Tooltip label="Cancel" placement="top">
+									<IconButton
+										colorScheme="red"
+										rounded={"full"}
+										aria-label="Cancel"
+										icon={<SmallCloseIcon />}
+										onClick={handleCancel}
+										isDisabled={!isLoading}
+										_disabled={{
+											opacity: 0.6,
+											cursor: "not-allowed",
+											bg: "gray.600",
+											_hover: {
+												bg: "gray.600"
+											}
+										}}
+									/>
+								</Tooltip>
 								<Tooltip
 									label="Upload files"
 									placement="top"

@@ -887,6 +887,7 @@ Your generation:
 
 from dune_tools import dune_tools
 from tools_image import tools as image_tools
+from tools_wallet import tools as wallet_tools
 
 # from exa_tools import tools as exa_tools
 # import tools_amberdata
@@ -911,4 +912,5 @@ tools = (
     + dune_tools
     # + tools_amberdata.tools
     + image_tools
+    + wallet_tools
 )

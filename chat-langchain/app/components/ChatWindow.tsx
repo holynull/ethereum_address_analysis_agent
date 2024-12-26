@@ -2,6 +2,7 @@
 
 import { Text, Tooltip } from "@chakra-ui/react";
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { ethers } from "ethers";
 import { useSearchParams } from "next/navigation";
 import { RemoteRunnable } from "langchain/runnables/remote";
 
@@ -26,7 +27,7 @@ import { ArrowUpIcon, CloseIcon, Icon, SmallCloseIcon } from "@chakra-ui/icons";
 import { Select } from "@chakra-ui/react";
 import { Source } from "./SourceBubble";
 import { AIMessageChunk } from "@langchain/core/messages"
-import { FaCircleNotch, FaTools, FaKeyboard, FaCheck, FaLightbulb, FaPlus } from 'react-icons/fa';
+import { FaCircleNotch, FaTools, FaKeyboard, FaCheck, FaLightbulb, FaPlus, FaWallet } from 'react-icons/fa';
 
 import {
 	UploadedImageFile,
@@ -51,6 +52,8 @@ export function ChatWindow(props: { conversationId: string }) {
 
 	const messageContainerRef = useRef<HTMLDivElement | null>(null);
 	const [messages, setMessages] = useState<Array<Message>>([]);
+	const [account, setAccount] = useState<string>("");
+	const [isConnected, setIsConnected] = useState(false);
 	const [input, setInput] = useState("");
 	const [showUpload, setShowUpload] = useState(false);
 	const [imageFiles, setImageFiles] = useState<UploadedImageFile[]>([]);
@@ -147,6 +150,30 @@ export function ChatWindow(props: { conversationId: string }) {
 		}
 	}
 
+	// Connect to MetaMask function
+	const connectToMetaMask = async () => {
+		try {
+			// Check if MetaMask is installed
+			if (typeof window.ethereum !== 'undefined') {
+				// Request account access
+				const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+				if (accounts && accounts.length > 0) {
+					const currentAccount = accounts[0];
+					setAccount(currentAccount);
+					setIsConnected(true);
+
+					// Create provider
+					const provider = new ethers.providers.Web3Provider(window.ethereum);
+					// You can do more with the provider here if needed
+				}
+			} else {
+				alert('Please install MetaMask!');
+			}
+		} catch (error) {
+			console.error('Error connecting to MetaMask:', error);
+			alert('Error connecting to MetaMask. Please try again.');
+		}
+	};
 	const sendMessage = async (message?: string) => {
 		if (messageContainerRef.current) {
 			messageContainerRef.current.classList.add("grow");
@@ -501,6 +528,15 @@ export function ChatWindow(props: { conversationId: string }) {
 									}
 								}
 							}
+							if ("name" in _chunk && _chunk.name == "connect_to_metamask") {
+								if ("data" in _chunk) {
+									var data = _chunk.data as object;
+									if ("output" in data) {
+										const result = data.output as string;
+										connectToMetaMask();
+									}
+								}
+							}
 
 							sources = [...sources ? sources : [], ...currentSources];
 							setMessages((prevMessages) => {
@@ -549,6 +585,8 @@ export function ChatWindow(props: { conversationId: string }) {
 			setProcessingStatus(ProcessingStatus.Idle);
 			throw e;
 		}
+
+
 	};
 
 	const insertUrlParam = (key: string, value?: string) => {
@@ -615,6 +653,17 @@ export function ChatWindow(props: { conversationId: string }) {
 							color={"white"}
 							textAlign="center"
 						>
+							<Box position="absolute" right="4" top="4">
+								<Tooltip label={isConnected ? `Connected: ${account}` : 'Connect MetaMask'} placement="top">
+									<IconButton
+										colorScheme={isConnected ? "green" : "orange"}
+										rounded={"full"}
+										aria-label="Connect MetaMask"
+										icon={<Icon as={FaWallet} />}
+										onClick={connectToMetaMask}
+									/>
+								</Tooltip>
+							</Box>
 							Ξ Musse AI Assistant 💼
 						</Heading>
 						<Heading

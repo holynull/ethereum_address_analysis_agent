@@ -256,6 +256,7 @@ typing-extensions = "^4.12.2"
 pydantic = "2.9"
 langchain-google-vertexai = "^2.0.9"
 vertexai = "^1.71.1"
+solana = "^0.36.2"
 
 
 [tool.poetry.group.dev.dependencies]

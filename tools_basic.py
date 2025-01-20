@@ -122,7 +122,7 @@ def getTokenMetadata(symbol: str) -> str:
 @tool
 def getLatestQuote(symbol: str) -> str:
     """
-    Useful when you need get the latest quote of a token.
+    Useful when you need get the exchange's latest quote of a token.
     """
     url = f"https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?symbol={symbol}"
     response = requests.get(url, headers=headers)
@@ -888,6 +888,7 @@ Your generation:
 from dune_tools import dune_tools
 from tools_image import tools as image_tools
 from tools_wallet import tools as wallet_tools
+from tools_swap import tools as swap_tools
 
 # from exa_tools import tools as exa_tools
 # import tools_amberdata
@@ -913,4 +914,5 @@ tools = (
     # + tools_amberdata.tools
     + image_tools
     + wallet_tools
+    + swap_tools
 )

@@ -57,7 +57,7 @@ def create_agent_executor(
     is_multimodal: bool = False,
 ) -> AgentExecutor:
 
-    from system_prompt_8 import system_prompt
+    from system_prompt_9_swap import system_prompt
 
     if is_multimodal:
         prompt = ChatPromptTemplate.from_messages(
@@ -87,7 +87,9 @@ def create_agent_executor(
                         ],
                         {
                             "type": "text",
-                            "text": "{input}",
+                            "text": (
+                                "{input}"
+                            ),
                         },
                     ],
                 ),
@@ -104,7 +106,9 @@ def create_agent_executor(
                 # ),
                 (
                     "human",
-                    "{input}",
+                    (
+                        "{input}"
+                    ),
                 ),
                 MessagesPlaceholder(variable_name="agent_scratchpad"),
             ]

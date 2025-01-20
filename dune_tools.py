@@ -1467,7 +1467,7 @@ def get_token_dex_liquidity_in_3_month(addresses: list[str]) -> str:
 
 
 @tool
-def get_balances_of_address(address: str):
+def analysis_balances_of_address(address: str):
     """
     Obtains the balance of all tokens for a specified address and provides a distribution chart in USD. Input should be a complete Ethereum address.
     """
@@ -1487,7 +1487,10 @@ def get_balances_of_address(address: str):
             QueryParameter.text_type(name="address", value=address),
         ],
     )
-    results_df = dune.run_query_dataframe(query=query)
+    try:
+        results_df = dune.run_query_dataframe(query=query)
+    except Exception as e:
+        return f"Get balance failed. {e}"
     if not results_df.empty:
         # 从数据中提取标签和余额
         labels = results_df["token_symbol"].apply(lambda x: x if x else "NaN").tolist()
@@ -1719,7 +1722,7 @@ def extract_token_from_balances(data: str) -> dict:
 dune_tools = [
     what_is_time_now,
     get_address_labels,
-    get_balances_of_address,
+    analysis_balances_of_address,
     get_token_balance_daily_of_address,
     get_funds_transfer_status_in_transaction,
     get_address_interact_with,

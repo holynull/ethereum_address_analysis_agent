@@ -154,3 +154,5 @@ connections.json
 .git_副本
 patches/
 *.patched
+walletconnect.txt
+private_key.txt

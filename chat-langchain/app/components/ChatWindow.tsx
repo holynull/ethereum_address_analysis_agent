@@ -2,7 +2,6 @@
 
 import { Text, Tooltip } from "@chakra-ui/react";
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { EthereumProvider } from '@walletconnect/ethereum-provider';
 import { ethers } from "ethers";
 import { useSearchParams } from "next/navigation";
 import { RemoteRunnable } from "langchain/runnables/remote";
@@ -23,6 +22,7 @@ import {
 	InputRightElement,
 	Spinner,
 	Box,
+	ButtonGroup
 } from "@chakra-ui/react";
 import { ArrowUpIcon, CloseIcon, Icon, SmallCloseIcon } from "@chakra-ui/icons";
 import { Select } from "@chakra-ui/react";
@@ -37,10 +37,11 @@ import {
 } from '../types/file';
 import FileUploadArea from './FileUploadArea';
 import GlobalPasteHint from './GlobalPasteHint';
-import { ExternalProvider } from '@ethersproject/providers';
-import { UniversalProvider, UniversalProviderOpts } from '@walletconnect/universal-provider';
-import { SignClient } from '@walletconnect/sign-client';
-import { error } from "console";
+import { mainnet, bsc, tron, optimism, arbitrum, sepolia, polygon, solana } from '@reown/appkit/networks'
+import { useAppKit, useAppKitProvider, useAppKitAccount, useAppKitNetwork, useAppKitState, useAppKitEvents, useWalletInfo } from "@reown/appkit/react"
+import { useAppKitConnection } from '@reown/appkit-adapter-solana/react'
+import { wcModal } from "../context/appkit"
+
 
 enum ProcessingStatus {
 	Idle = "idle",
@@ -50,6 +51,7 @@ enum ProcessingStatus {
 	Typing = "typing",
 	Completed = "completed"
 }
+
 export function ChatWindow(props: { conversationId: string }) {
 	const conversationId = props.conversationId;
 
@@ -57,16 +59,17 @@ export function ChatWindow(props: { conversationId: string }) {
 
 	const messageContainerRef = useRef<HTMLDivElement | null>(null);
 	const [messages, setMessages] = useState<Array<Message>>([]);
-	const [account, setAccount] = useState<string>("");
 	const [activeConnector, setActiveConnector] = useState<'metamask' | 'walletconnect' | null>(null);
 	const [network, setNetwork] = useState<string>("");
-	const [chainId, setChainId] = useState<string>("");
-	const [isConnected, setIsConnected] = useState(false);
+	// const [isConnected, setIsConnected] = useState(false);
 	const [input, setInput] = useState("");
 	const [showUpload, setShowUpload] = useState(false);
 	const [imageFiles, setImageFiles] = useState<UploadedImageFile[]>([]);
 	const [imageUrls, setImageUrls] = useState<UploadedImageUrl[]>([]);
 	const [pdfFiles, setPdfFiles] = useState<UploadedPDFFile[]>([]);
+
+
+
 
 	const openFileUpload = () => {
 		if (!showUpload) {
@@ -158,9 +161,6 @@ export function ChatWindow(props: { conversationId: string }) {
 		}
 	}
 
-	// Initialize WalletConnect
-	const [wcProvider, setWcProvider] = useState<any>(null);
-
 	// Check if device is mobile
 	const isMobile = () => {
 		if (typeof window !== 'undefined') {
@@ -182,243 +182,58 @@ export function ChatWindow(props: { conversationId: string }) {
 		return null;
 	};
 
+	// Walletconnect AppKit
+	const { open, close } = useAppKit();
+	const { address, isConnected, caipAddress, status, embeddedWalletInfo } = useAppKitAccount()
+	const { caipNetwork, caipNetworkId, chainId, switchNetwork } = useAppKitNetwork()
+	// const { open, selectedNetworkId } = useAppKitState()
+	const events = useAppKitEvents()
+	// const { walletProvider_solana } = useAppKitProvider<Provider>('solana') as any
+	// const { solanaProvider } = useAppKitProvider('solana')
+	const { walletInfo } = useWalletInfo()
+	const { connection } = useAppKitConnection()
+	const [txDataEvm, setTxDataEvm] = useState<any>(null)
+	const [txDataSol, setTxDataSol] = useState<any>(null)
+	const [txDataSolTW, setTxDataSolTW] = useState<any>(null)
+	const [isShowSendEvmTx, setShowSendEvmTx] = useState<boolean>(false)
+	const [isShowSendSolTx, setShowSendSolTx] = useState<boolean>(false)
+	const [isShowSendSolTxTW, setShowSendSolTxTW] = useState<boolean>(false)
 	const connectWallet = async () => {
-		if (wcProvider) {
-			return
-		}
-		try {
-			// If on mobile or MetaMask is not installed, use WalletConnect
-			if (isMobile() || typeof window.ethereum === 'undefined') {
-				// Initialize new WalletConnect if no active session
-				const provider = await UniversalProvider.init({
-					projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || '', // your projectId
-					metadata: {
-						name: 'React App',
-						description: 'React App for WalletConnect',
-						url: 'https://walletconnect.com/',
-						icons: ['https://avatars.githubusercontent.com/u/37784886']
-					},
-					client: undefined // optional instance of @walletconnect/sign-client
-					// chains: [1, 56, 137], // mainnet
-					// optionalChains: [5, 137, 80001], // goerli, polygon, mumbai
-					// showQrModal: true,
-				});
-				// Register event listeners
-				provider.on('connect', async () => {
-					console.log("wallet connected.")
-					const accounts = await provider.enable();
-					if (accounts && accounts.length > 0) {
-						setAccount(accounts[0]);
-						setIsConnected(true);
-						setActiveConnector('walletconnect');
+		await open({ view: "Connect" })
+	}
 
-						// Get network information
-						const chainId = await provider.request({ method: 'eth_chainId' });
-						const ethProvider = new ethers.providers.Web3Provider(provider);
-						const network = await ethProvider.getNetwork();
-						setChainId(chainId as string);
-						setNetwork(network.name);
-					}
-				});
-
-				provider.on('disconnect', () => {
-					setIsConnected(false);
-					setAccount('');
-					setActiveConnector(null);
-					setChainId("-1")
-				});
-				await provider.connect({
-					optionalNamespaces: {
-						eip155: {
-							methods: [
-								'eth_sendTransaction',
-								'eth_signTransaction',
-								'eth_sign',
-								'personal_sign',
-								'eth_signTypedData'
-							],
-							chains: ['eip155:1'],
-							events: ['chainChanged', 'accountsChanged'],
-							rpcMap: {
-								80001:
-									'https://rpc.walletconnect.com?chainId=eip155:80001&projectId=' + process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID
-							}
-						}
-					},
-					// pairingTopic: '<123...topic>', // optional topic to connect to
-					// skipPairing: false // optional to skip pairing ( later it can be resumed by invoking .pair())
-				});
-				setWcProvider(provider);
-			} else if (typeof window.ethereum !== 'undefined') {
-				// Request account access
-				const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-				if (accounts && accounts.length > 0) {
-					const currentAccount = accounts[0];
-					setAccount(currentAccount);
-					setIsConnected(true);
-					setActiveConnector('metamask');
-
-					// Create provider
-					const provider = new ethers.providers.Web3Provider(window.ethereum);
-					const network = await provider.getNetwork();
-					const chainId = (await provider.getNetwork()).chainId.toString();
-					setChainId(chainId);
-					setNetwork(network.name);
-					// You can do more with the provider here if needed
-				}
-			} else {
-				//todo: If MetaMask not available, try WalletConnect
-
-			}
-		} catch (error) {
-			console.error('Error connecting to wallet:\n' + error);
-			setIsConnected(false);
-			setAccount('');
-			setActiveConnector(null);
-			setChainId('-1');
-			setNetwork('');
-		}
-	};
-
-	// todo: Disconnect wallet function
-	const disconnectWallet = async (isUnloading = false) => {
-		try {
-			console.log('[Wallet] Disconnecting wallet, isUnloading:', isUnloading);
-			if (activeConnector === 'walletconnect' && wcProvider) {
-				// Add a small delay to ensure the disconnect message is sent
-				await Promise.race([
-					wcProvider.disconnect(),
-					new Promise(resolve => setTimeout(resolve, 1000))
-				]);
-			}
-			setIsConnected(false);
-			setAccount('');
-			setActiveConnector(null);
-			setChainId('-1');
-			setNetwork('');
-		} catch (error) {
-			console.error('[Wallet] Error disconnecting wallet:', error);
-		}
-	};
 	const CHAIN_CONFIG = {
-		"1": {
-			"chainId": "0x1",
-			"chainName": "Ethereum Mainnet",
-			"nativeCurrency": { "name": "Ether", "symbol": "ETH", "decimals": 18 },
-			"rpcUrls": ["https://eth.public-rpc.com"],
-			"blockExplorerUrls": ["https://etherscan.io"],
+		"ethereum": {
+			"network": mainnet,
 		},
-		"56": {
-			"chainId": "0x38",
-			"chainName": "Binance Smart Chain",
-			"nativeCurrency": { "name": "BNB", "symbol": "BNB", "decimals": 18 },
-			"rpcUrls": ["https://bsc-dataseed.binance.org"],
-			"blockExplorerUrls": ["https://bscscan.com"],
+		"bsc": {
+			"network": bsc
 		},
-		"137": {
-			"chainId": "0x89",
-			"chainName": "Polygon Mainnet",
-			"nativeCurrency": { "name": "MATIC", "symbol": "MATIC", "decimals": 18 },
-			"rpcUrls": ["https://polygon-rpc.com"],
-			"blockExplorerUrls": ["https://polygonscan.com"],
+		"polygon": {
+			"network": polygon,
 		},
-		"42161": {
-			"chainId": "0xa4b1",
-			"chainName": "Arbitrum One",
-			"nativeCurrency": { "name": "Ethereum", "symbol": "ETH", "decimals": 18 },
-			"rpcUrls": ["https://arb1.arbitrum.io/rpc"],
-			"blockExplorerUrls": ["https://arbiscan.io"],
+		"arbitrum": {
+			"network": arbitrum,
 		},
-		"10": {
-			"chainId": "0xa",
-			"chainName": "Optimism",
-			"nativeCurrency": { "name": "Ethereum", "symbol": "ETH", "decimals": 18 },
-			"rpcUrls": ["https://mainnet.optimism.io"],
-			"blockExplorerUrls": ["https://optimistic.etherscan.io"],
+		"optimism": {
+			"network": optimism,
 		},
 		"solana": {
-			"chainId": "solana",
-			"chainName": "Solana",
-			"rpcUrls": ["https://api.mainnet-beta.solana.com"],
-			"blockExplorerUrls": ["https://solscan.io"],
-			"nativeCurrency": { "name": "SOL", "symbol": "SOL", "decimals": 9 },
-			"isNonEVM": true
+			"network": solana,
+		},
+		"tron": {
+			"network": tron
 		}
 	}
 
 	const _change_network_to = async (chainId: string) => {
-		const chainData = chainId === "solana" ? CHAIN_CONFIG["solana"] : CHAIN_CONFIG[chainId as keyof typeof CHAIN_CONFIG] as any;
-		if (chainData.isNonEVM) {
-			// 处理非EVM链切换
-			if (chainData.chainId === "solana") {
-				try {
-					// 如果是WalletConnect
-					if (activeConnector === 'walletconnect' && wcProvider) {
-						await wcProvider.request({
-							method: 'wallet_switchNetwork',
-							params: [{ chainId: 'solana' }]
-						});
-					} else {
-						// 如果是其他Solana钱包
-						if (typeof window.solana !== 'undefined') {
-							await window.solana.connect();
-						} else {
-							throw new Error('No Solana wallet found');
-						}
-					}
-				} catch (error) {
-					console.error('Error switching to Solana:', error);
-					throw error;
-				}
-			}
-		} else if (activeConnector === 'walletconnect' && wcProvider) {
-			try {
-				await wcProvider.request({
-					method: 'wallet_switchEthereumChain',
-					params: [{ chainId }],
-				});
-			} catch (switchError: any) {
-				if (switchError.code === 4902) {
-					await wcProvider.request({
-						method: 'wallet_addEthereumChain',
-						params: [chainData],
-					});
-				} else {
-					console.log(switchError)
-				}
-			}
-		} else if (typeof window.ethereum !== 'undefined') {
-			try {
-				if (typeof window.ethereum !== 'undefined') {
-					// Try switching to network
-					await window.ethereum.request({
-						method: 'wallet_switchEthereumChain',
-						params: [{ chainId }],
-					});
-				}
-			} catch (switchError: any) {
-				// Handle chain not added error
-				if (switchError.code === 4902) {
-					try {
-						if (typeof window.ethereum !== 'undefined') {
-							// Add the chain
-							await window.ethereum.request({
-								method: 'wallet_addEthereumChain',
-								params: [chainData],
-							});
-						}
-					} catch (addError) {
-						console.error('Error adding chain:', addError);
-					}
-				} else {
-					console.error('Error switching chain:', switchError);
-				}
-			}
-		}
+		const chainData = CHAIN_CONFIG[chainId as keyof typeof CHAIN_CONFIG] as any;
+		wcModal.switchNetwork(chainData.network)
+		switchNetwork(chainData.network)
 	}
 	const change_network_to = async (network_data: any) => {
 		if (Array.isArray(network_data) && network_data.length >= 2) {
-			const chainId = network_data[1].chainId;
+			const chainId = network_data[1].network_name;
 			await _change_network_to(chainId)
 		}
 	}
@@ -614,7 +429,7 @@ export function ChatWindow(props: { conversationId: string }) {
 			let streams = await remoteChain.stream(
 				{
 					input: messageValue,
-					wallet_address: account,
+					wallet_address: address ? address : "",
 					chain_id: chainId ? chainId.toString() : "-1",
 					wallet_is_connected: isConnected,
 					// chat_history: chatHistory,
@@ -787,6 +602,8 @@ export function ChatWindow(props: { conversationId: string }) {
 									if ("output" in data) {
 										const result = data.output as string;
 										await connectWallet();
+										// await connect_solana_wallet();
+										// todo: use walletconnect appkit to impletment connect wallet
 									}
 								}
 							}
@@ -820,65 +637,24 @@ export function ChatWindow(props: { conversationId: string }) {
 							// 			}
 							// 		}
 							// 	}
-							// }
-							if ("name" in _chunk && (_chunk.name == "generate_transfer_native_token" || _chunk.name == "generate_approve_erc20" || _chunk.name == "generate_transfer_erc20_tx_data")) {
+							let chainType: "evm" | "sol" | "tron" | undefined = undefined;
+							let txData: any = null;
+							let txName: string = '';
+							if ("name" in _chunk && (_chunk.name == "generate_transfer_native_token" || _chunk.name == "generate_approve_erc20" || _chunk.name == "generate_approve_trc20" || _chunk.name == "generate_transfer_erc20_tx_data")) {
 								if ("data" in _chunk) {
 									var data = _chunk.data as object;
 									if ("output" in data) {
 										const result = data.output;
-										// result example:
-										// [
-										// 	"Already notify the front end to sign the transaction data and send the transaction.",
-										// 	{
-										// 		"to": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-										// 		"data": "0xa9059cbb0000000000000000000000003850c94a8a074111fbd17ad83239c9b099a68fa300000000000000000000000000000000000000000000000000000000002dc6c0"
-										// 	}
-										// ]
-										// Send signed transaction using MetaMask signer
-										try {
-											if (Array.isArray(result) && result.length >= 2) {
-												const txData = result[1] as any;
-												// if (txData["chain_id"] != chainId) {
-												// 	await _change_network_to(txData["chain_id"])
-												// }
-												// 根据当前连接器选择不同的provider
-												// Get provider and signer
-												let provider;
-												if (activeConnector === 'walletconnect' && wcProvider) {
-													provider = new ethers.providers.Web3Provider(wcProvider);
-												} else if (typeof window.ethereum !== 'undefined') {
-													provider = new ethers.providers.Web3Provider(window.ethereum as ExternalProvider);
-													await provider.send("eth_requestAccounts", []);
-												} else {
-													throw new Error('No wallet provider found');
-												}
-												const signer = provider.getSigner(account);
-
-												// Construct transaction object
-												const transaction = {
-													from: account,
-													to: txData.to,
-													data: txData.data,
-													value: txData.value,
-													gasLimit: txData.gasLimit,
-													gasPrice: txData.gasPrice,
-													chainId: txData.chain_id,
-												};
-
-												// Send transaction
-												const tx = await signer.sendTransaction(transaction);
-												console.log('Transaction hash:', tx.hash);
-
-												// Wait for transaction confirmation
-												// const receipt = await tx.wait();
-												// console.log('Transaction confirmed:', receipt);
-
-												// Add transaction result to message
-												accumulatedMessage += `\nTransaction sent successfully! Hash: \`${tx.hash}\``;
+										if (Array.isArray(result) && result.length >= 2) {
+											txData = result[1] as any;
+											if (txData["chain_id"] != chainId && txData['chain_id'] !== 'tron') {
+												await _change_network_to(txData["chain_id"])
 											}
-										} catch (error) {
-											console.error('Transaction error:', error);
-											// accumulatedMessage += `\nTransaction failed: ${error}`;
+											// setTxDataEvm(txData);
+											// setShowSendEvmTx(true);
+											chainType = 'evm';
+											txData = txData;
+											txName = txData['name']
 										}
 									}
 								}
@@ -895,123 +671,44 @@ export function ChatWindow(props: { conversationId: string }) {
 											}
 											let signedTx = null;
 											if (swap_data.chain_type === "evm") {
-												try {
-													// if (txData["chain_id"] != chainId) {
-													// 	await _change_network_to(txData["chain_id"])
-													// }
-													// 根据当前连接器选择不同的provider
-													// Get provider and signer
-													let provider;
-													if (activeConnector === 'walletconnect' && wcProvider) {
-														provider = new ethers.providers.Web3Provider(wcProvider);
-													} else if (typeof window.ethereum !== 'undefined') {
-														provider = new ethers.providers.Web3Provider(window.ethereum as ExternalProvider);
-														await provider.send("eth_requestAccounts", []);
-													} else {
-														throw new Error('No wallet provider found');
-													}
-													const signer = provider.getSigner(account);
-													// Construct transaction object
-													const transaction = {
-														from: account,
-														to: swap_data.txData.to,
-														data: swap_data.txData.data,
-														value: swap_data.txData.value,
-														gasLimit: swap_data.gasLimit,
-														gasPrice: swap_data.gasPrice,
-														chainId: swap_data.chain_id,
-													};
-
-													// Send transaction
-													signedTx = await signer.sendTransaction(transaction);
-
-
-													// Wait for transaction confirmation
-													// const receipt = await tx.wait();
-													// console.log('Transaction confirmed:', receipt);
-
-													// Add transaction result to message
-													accumulatedMessage += `\nTransaction sent successfully! Hash: \`${signedTx.hash}\``;
-												} catch (error) {
-													console.error('Transaction error:', error);
-													// accumulatedMessage += `\nTransaction failed: ${error}`;
-												}
-												if (signedTx) {
-													console.log('Transaction hash:', signedTx.hash);
-													// Generate order record after transaction is sent
-													try {
-														const orderInfo = result.order_info;
-														await fetch(process.env.NEXT_PUBLIC_API_URL + '/generate_swap_order', {
-															method: 'POST',
-															headers: { 'Content-Type': 'application/json' },
-															body: JSON.stringify({
-																hash: signedTx.hash,
-																from_token_address: orderInfo.from_token_address,
-																to_token_address: orderInfo.to_token_address,
-																from_address: orderInfo.from_address,
-																to_address: orderInfo.to_address,
-																from_token_chain: orderInfo.from_token_chain,
-																to_token_chain: orderInfo.to_token_chain,
-																from_token_amount: orderInfo.from_token_amount,
-																amount_out_min: orderInfo.amount_out_min,
-																from_coin_code: orderInfo.from_coin_code,
-																to_coin_code: orderInfo.to_coin_code,
-																source_type: orderInfo.source_type,
-																slippage: orderInfo.slippage
-															})
-														});
-														console.log("Update order info success.")
-													} catch (error) {
-														console.error('Error generating swap order:', error);
-														accumulatedMessage += '\nFailed to generate swap order record.';
-													}
-												}
+												// setTxDataEvm(swap_data.txData)
+												// setShowSendEvmTx(true)
+												chainType = 'evm'
 											} else if (swap_data.chain_type === "solana") {
-												try {
-													const signClient = await SignClient.init({
-														projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || '', // your projectId
-													});
-													const session = await signClient.connect({
-														requiredNamespaces: {
-															solana: {
-																methods: ['solana_signTransaction'],
-																chains: ['solana:mainnet'],
-																events: ['connect', 'disconnect']
-															}
-														}
-													});
-													// Get tx and signer data from txData for Solana
-													const { tx, signer } = swap_data.txData;
-
-													// Use WalletConnect to sign Solana transaction
-													signedTx = await signClient.request({
-														topic: (session as any).topic,
-														chainId: "solana:mainnet",
-														request: {
-															method: "solana_signTransaction",
-															params: {
-																transaction: tx,
-																signer: signer
-															}
-														}
-													});
-
-													// Handle transaction result
-													// if (signedTx) {
-													// 广播交易
-													// const signature = await signClient.sendRawTransaction(signedTx);
-													// 	console.log('Solana transaction signed:', signedTx);
-													// 	accumulatedMessage += `\nSolana transaction signed successfully! Hash: \`${signedTx.hash}\``;
-													// }
-												} catch (error) {
-													console.error('Solana transaction error:', error);
-													accumulatedMessage += `\nFailed to sign Solana transaction: ${error}`;
+												if (!connection) {
+													wcModal.switchNetwork(solana)
+													// open({ view: "Connect" })
 												}
+												// setTxDataSol(txData)
+												// setShowSendSolTx(true)
+												chainType = 'sol'
+												// if (walletInfo?.name === "Trust Wallet") {
+												// setTxDataSol(null)
+												// setShowSendSolTx(false)
+												// setTxDataSolTW(txData)
+												// setShowSendSolTxTW(true)
+												// }
+											} else if (swap_data.chain_type === "tron") {
+												if (!connection) {
+													wcModal.switchNetwork(solana)
+													// open({ view: "Connect" })
+												}
+												// setTxDataSol(txData)
+												// setShowSendSolTx(true)
+												chainType = 'tron'
+												// if (walletInfo?.name === "Trust Wallet") {
+												// setTxDataSol(null)
+												// setShowSendSolTx(false)
+												// setTxDataSolTW(txData)
+												// setShowSendSolTxTW(true)
+												// }
+
 											} else {
 												console.error('Unsupported chain type:', swap_data.chain_type);
 												accumulatedMessage += `\nUnsupported chain type: ${swap_data.chain_type}`;
 											}
-
+											txData = swap_data.txData
+											txName = swap_data.name
 										}
 									}
 								}
@@ -1031,11 +728,19 @@ export function ChatWindow(props: { conversationId: string }) {
 										runId: runId,
 										sources: sources,
 										role: "assistant",
+										chainType: chainType,
+										txData: txData,
+										txName: txName,
 									});
 								} else if (newMessages[messageIndex] !== undefined) {
 									// newMessages[messageIndex].content = parsedResult.trim();
 									newMessages[messageIndex].runId = runId;
 									newMessages[messageIndex].sources = sources;
+									if (chainType && txData) {
+										newMessages[messageIndex].chainType = chainType;
+										newMessages[messageIndex].txData = txData;
+										newMessages[messageIndex].txName = txName;
+									}
 								}
 								// 使用 setTimeout 确保在 DOM 更新后执行滚动
 								setTimeout(scrollToBottom, 0);
@@ -1093,140 +798,21 @@ export function ChatWindow(props: { conversationId: string }) {
 				// Get current accounts
 				const accounts = await window.ethereum.request({ method: 'eth_accounts' });
 				if (accounts && accounts.length > 0) {
-					setAccount(accounts[0]);
-					setIsConnected(true);
+					// setAccount(accounts[0]);
+					// setIsConnected(true);
 
-					// Get current network
-					const provider = new ethers.providers.Web3Provider(window.ethereum as ExternalProvider);
-					const network = await provider.getNetwork();
-					const chainId = network.chainId.toString();
-					setChainId(chainId);
-					setNetwork(network.name);
+					// // Get current network
+					// const provider = new ethers.providers.Web3Provider(window.ethereum as ExternalProvider);
+					// const network = await provider.getNetwork();
+					// const chainId = network.chainId.toString();
+					// setChainId(chainId);
+					// setNetwork(network.name);
 				}
 			} catch (error) {
 				console.error('Error checking wallet connection:', error);
 			}
 		}
 	};
-
-	// Check wallet connection on component mount
-	useEffect(() => {
-		// Add multiple event listeners for cleanup
-		const handleBeforeUnload = async () => {
-			// Call disconnectWallet before unloading
-			console.log('[Wallet] beforeunload event triggered');
-			await disconnectWallet(true);
-		};
-		// Monitor page visibility changes
-		const handleVisibilityChange = async () => {
-			if (document.visibilityState === 'hidden') {
-				console.log('[Wallet] Page visibility changed to hidden');
-				// await disconnectWallet(true);
-			}
-		};
-
-		// Add event listeners
-		window.addEventListener('beforeunload', () => {
-			handleBeforeUnload(); setTimeout(() => {
-
-			}, 500);
-		});
-		document.addEventListener('visibilitychange', handleVisibilityChange);
-		// Initial setup and checks
-		checkWalletConnection();
-
-		// Setup WalletConnect listeners if provider exists
-		if (wcProvider) {
-			wcProvider.on('connect', async () => {
-				const accounts = await wcProvider.enable();
-				if (accounts && accounts.length > 0) {
-					setAccount(accounts[0]);
-					setIsConnected(true);
-					setActiveConnector('walletconnect');
-
-					// Get network information
-					const chainId = await wcProvider.request({ method: 'eth_chainId' });
-					const provider = new ethers.providers.Web3Provider(wcProvider);
-					const network = await provider.getNetwork();
-					setChainId(chainId);
-					setNetwork(network.name);
-				}
-			});
-
-			wcProvider.on('disconnect', () => {
-				setIsConnected(false);
-				setAccount('');
-				setActiveConnector(null);
-				setChainId('-1');
-				setNetwork('');
-			});
-
-			wcProvider.on('chainChanged', async (chainId: string) => {
-				const provider = new ethers.providers.Web3Provider(wcProvider);
-				const network = await provider.getNetwork();
-				setChainId(parseInt(chainId, 16).toString());
-				setNetwork(network.name);
-			});
-			wcProvider.on('accountsChanged', (accounts: string[]) => {
-				if (accounts.length === 0) {
-					// Wallet disconnected
-					setIsConnected(false);
-					setAccount('');
-				} else {
-					setAccount(accounts[0]);
-					setIsConnected(true);
-				}
-			});
-		}
-		// todo: Setup WalletConnect event listeners
-
-		if (typeof window.ethereum !== 'undefined') {
-			// Listen for chain changes
-			window.ethereum.on('chainChanged', async () => {
-				const provider = new ethers.providers.Web3Provider(window.ethereum as ExternalProvider);
-				const network = await provider.getNetwork();
-				const chainId = network.chainId.toString();
-				setChainId(parseInt(chainId, 16).toString());
-				setNetwork(network.name);
-			});
-			window.ethereum.on('accountsChanged', (accounts: string[]) => {
-				if (accounts.length === 0) {
-					// Wallet disconnected
-					setIsConnected(false);
-					setAccount('');
-				} else {
-					setAccount(accounts[0]);
-					setIsConnected(true);
-				}
-			});
-		}
-
-		return () => {
-			// Remove WalletConnect listeners
-			if (wcProvider) {
-				wcProvider.removeListener('connect', () => { });
-				wcProvider.removeListener('disconnect', () => { });
-				wcProvider.removeListener('chainChanged', () => { });
-			}
-
-
-			// Remove MetaMask listeners
-			if (typeof window.ethereum !== 'undefined') {
-				window.ethereum.removeListener('accountsChanged', () => { });
-				window.ethereum.removeListener('chainChanged', () => { });
-			}
-			// Remove beforeunload event listener
-			// Remove all event listeners
-			window.addEventListener('beforeunload', () => {
-				handleBeforeUnload(); setTimeout(() => {
-
-				}, 500);
-			});
-			document.removeEventListener('visibilitychange', handleVisibilityChange);
-			// Disconnect wallet on component unmount
-			// disconnectWallet(true);
-		};
-	}, [wcProvider]);
 
 	useEffect(() => {
 		scrollToBottom();
@@ -1276,7 +862,7 @@ export function ChatWindow(props: { conversationId: string }) {
 							<Box position="absolute" right="4" top="4">
 								<Tooltip
 									label={isConnected ?
-										`Connected via ${activeConnector === 'metamask' ? 'MetaMask' : 'WalletConnect'}: ${network} (Chain ID: ${chainId}) - ${account}` :
+										`Connected via ${activeConnector === 'metamask' ? 'MetaMask' : 'WalletConnect'}: ${network} (Chain ID: ${chainId}) - ${address}` :
 										'Connect Wallet'}
 									placement="top">
 									{isConnected ? (
@@ -1285,7 +871,7 @@ export function ChatWindow(props: { conversationId: string }) {
 											rounded={"full"}
 											aria-label="Disconnect Wallet"
 											icon={<Icon as={FaWallet} />}
-											onClick={() => disconnectWallet()}
+											onClick={async () => { await open({ view: "Account" }) }}
 										/>
 									) : (
 										<IconButton
@@ -1293,7 +879,7 @@ export function ChatWindow(props: { conversationId: string }) {
 											rounded={"full"}
 											aria-label="Connect MetaMask"
 											icon={<Icon as={FaWallet} />}
-											onClick={() => { connectWallet() }}
+											onClick={async () => { await connectWallet() }}
 										/>
 									)}
 								</Tooltip>
@@ -1303,7 +889,7 @@ export function ChatWindow(props: { conversationId: string }) {
 						{isMobile() && isConnected && (
 							<div className="text-white text-sm mt-2 text-center px-4">
 								<div>Network: {network} (Chain ID: {chainId})</div>
-								<div className="mt-1 opacity-80 break-all">{account}</div>
+								<div className="mt-1 opacity-80 break-all">{address}</div>
 							</div>
 						)}
 						<Heading
@@ -1367,6 +953,11 @@ export function ChatWindow(props: { conversationId: string }) {
 								))
 						}
 					</div>
+					{/* <ButtonGroup>
+						{isShowSendEvmTx && <SendEVMTransaction txData={txDataEvm}></SendEVMTransaction>}
+						{isShowSendSolTx && <SendSolanaTransaction txData={txDataSol} ></SendSolanaTransaction>}
+						{isShowSendSolTxTW && <SendSolanaTransactionTW txData={txDataSolTW} ></SendSolanaTransactionTW>}
+					</ButtonGroup> */}
 					<InputGroup size="md" alignItems={"center"} className="w-full bg-[#131318] mb-8 sticky bottom-0 z-20 py-4 pb-8">
 						<AutoResizeTextarea
 							value={input}

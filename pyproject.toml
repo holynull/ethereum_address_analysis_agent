@@ -257,6 +257,8 @@ pydantic = "2.9"
 langchain-google-vertexai = "^2.0.9"
 vertexai = "^1.71.1"
 solana = "^0.36.2"
+solders = "^0.23.0"
+tronpy = "^0.5.0"
 
 
 [tool.poetry.group.dev.dependencies]

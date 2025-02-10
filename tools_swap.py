@@ -231,7 +231,7 @@ def generate_swap_tx_data(
         and from_token_address == t["address"]
         and from_token_chain == t["chain"]
     ]
-    if len(evm_from_token) > 0:
+    if len(evm_from_token) > 0 and evm_from_token[0]["chain"] != "TRON":
         # RPC URL mapping for different chains
         rpc_urls = {
             1: "https://eth.public-rpc.com",  # Ethereum mainnet
@@ -262,29 +262,37 @@ def generate_swap_tx_data(
             "gasLimit": gas_limit,
             "gasPrice": gas_price,
             "chain_id": evm_from_token[0]["chainId"],
-            "chain_type": "evm"
+            "chain_type": "evm",
+            "name": "Send Swap Transaction",
         }
-
+    elif len(evm_from_token) > 0 and evm_from_token[0]["chain"] == "TRON":
+        swap_data = {
+            "txData": data.get("data", {}).get("txData"),
+            "chain_id": evm_from_token[0]["chainId"],
+            "chain_type": "tron",
+            "name": "Send Swap Transaction",
+        }
     elif from_token_chain.upper() == "SOLANA":
         # Solana chain handling
         tx_data = data.get("data", {}).get("txData", {})
         if "tx" in tx_data and "signer" in tx_data:
             swap_data = {
-                "txData": {
-                    "tx": tx_data["tx"],
-                    "signer": tx_data["signer"]
-                },
-                "chain_type": "solana"
+                "txData": {"tx": tx_data["tx"], "signer": tx_data["signer"]},
+                "chain_type": "solana",
+                "name": "Send Swap Transaction",
             }
         else:
             swap_data = {
                 "txData": tx_data,
-                "chain_type": "solana"
+                "chain_type": "solana",
+                "name": "Send Swap Transaction",
             }
+
     else:
         swap_data = {
             "txData": data.get("data", {}).get("txData"),
-            "chain_type": "unknown"
+            "chain_type": "unknown",
+            "name": "Send Swap Transaction",
         }
 
     order_info = {

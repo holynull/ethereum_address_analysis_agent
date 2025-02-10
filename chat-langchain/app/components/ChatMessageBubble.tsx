@@ -21,6 +21,8 @@ import {
 import { sendFeedback } from "../utils/sendFeedback";
 import { apiBaseUrl } from "../utils/constants";
 import { InlineCitation } from "./InlineCitation";
+import { SendEVMTransaction } from "./SendEVMTransation";
+import { SendSolanaTransaction } from "./SendSolanaTransaction";
 
 export type Message = {
 	id: string;
@@ -32,6 +34,9 @@ export type Message = {
 	name?: string;
 	function_call?: { name: string };
 	images?: string[]; // 添加图片数组字段
+	chainType?: "evm" | "sol" | "tron" | undefined;
+	txData?: any;
+	txName?: string;
 };
 export type Feedback = {
 	feedback_id: string;
@@ -75,7 +80,7 @@ const createAnswerElements = (
 	const elements: JSX.Element[] = [];
 	let prevIndex = 0;
 	DOMPurify.setConfig({
-		ALLOWED_TAGS: ['iframe', 'pre', 'code', 'p', 'ol', 'li', 'ul','span','img'],
+		ALLOWED_TAGS: ['iframe', 'pre', 'code', 'p', 'ol', 'li', 'ul', 'span', 'img'],
 		ALLOWED_ATTR: ['src', 'width', 'height', 'frameborder', 'allowfullscreen', 'style', 'class']
 	});
 	matches.forEach((match) => {
@@ -126,7 +131,7 @@ export function ChatMessageBubble(props: {
 	isMostRecent: boolean;
 	messageCompleted: boolean;
 }) {
-	const { role, content, runId } = props.message;
+	const { role, content, runId, chainType, txData, txName } = props.message;
 	const isUser = role === "user";
 	const [isLoading, setIsLoading] = useState(false);
 	const [traceIsLoading, setTraceIsLoading] = useState(false);
@@ -471,8 +476,11 @@ export function ChatMessageBubble(props: {
 					<div className="markdown-content">
 						{answerElements}
 					</div>
+					{chainType && txData && (chainType === 'evm' || chainType === 'tron') && <SendEVMTransaction txData={txData} name={txName}></SendEVMTransaction>}
+					{chainType && txData && chainType === 'sol' && <SendSolanaTransaction txData={txData} name={txName}></SendSolanaTransaction>}
 				</MessageContent>
 			)}
+
 
 			{props.message.role !== "user" &&
 				props.isMostRecent &&

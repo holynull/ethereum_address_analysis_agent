@@ -365,7 +365,7 @@ def generate_erc20_approve_data(spender_address: str, amount: str) -> str:
 def generate_approve_erc20(
     token_address: str, spender_address: str, amount: str, chain_id: int
 ):
-    """Generate tansaction data for approve spender to use ERC20 token.
+    """Notify the front end to generate a button to send tansaction data for approve spender to use ERC20 token.
 
     Args:
         token_address: The address of the ERC20 token contract
@@ -417,7 +417,7 @@ def generate_approve_erc20(
         gas_price = 0
 
     return (
-        "Already notify the front end to sign the transaction data and send the transaction.",
+        "Already notify the front end to sign the transaction data and send the transaction. The button will be named after the `name` in the data.",
         {
             "to": token_address,
             "data": tx_data,
@@ -587,7 +587,7 @@ def get_spl_token_balance(
         return 0  # Return 0 if no token account found
 
     except Exception as e:
-        print(f"Error occurred while querying token balance: {str(e)}")
+        return f"Error occurred while querying token balance: {str(e)}"
 
 
 from tronpy.keys import to_hex_address, to_base58check_address, to_tvm_address
@@ -683,7 +683,7 @@ def get_trx_balance(wallet_address: str) -> dict:
 
 
 def generate_trc20_approve_data(spender_address: str, amount: str) -> str:
-    """Generate transaction data for TRC20 token approve.
+    """Notify the front end to generate a button to send transaction data for TRC20 token approve.
 
     Args:
         spender_address: The spender address to approve
@@ -753,7 +753,7 @@ def generate_approve_trc20(token_address: str, spender_address: str, amount: str
         fee_limit = 100_000_000  # Default fee limit (100 TRX)
 
         return (
-            "Already notify the front end to sign the transaction data and send the transaction.",
+            "Already notify the front end to sign the transaction data and send the transaction. The button will be named after the `name` in the data.",
             {
                 "to": token_address,
                 "data": tx_data,

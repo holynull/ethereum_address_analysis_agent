@@ -24,6 +24,13 @@ import { InlineCitation } from "./InlineCitation";
 import { SendEVMTransaction } from "./SendEVMTransation";
 import { SendSolanaTransaction } from "./SendSolanaTransaction";
 
+export type TxData = {
+	chainType?: "evm" | "sol" | "tron" | undefined;
+	txData?: any;
+	txName?: string;
+	orderInfo?: any;
+}
+
 export type Message = {
 	id: string;
 	createdAt?: Date;
@@ -34,9 +41,8 @@ export type Message = {
 	name?: string;
 	function_call?: { name: string };
 	images?: string[]; // 添加图片数组字段
-	chainType?: "evm" | "sol" | "tron" | undefined;
-	txData?: any;
-	txName?: string;
+	txDatas?: TxData;
+
 };
 export type Feedback = {
 	feedback_id: string;
@@ -131,7 +137,7 @@ export function ChatMessageBubble(props: {
 	isMostRecent: boolean;
 	messageCompleted: boolean;
 }) {
-	const { role, content, runId, chainType, txData, txName } = props.message;
+	const { role, content, runId, txDatas } = props.message;
 	const isUser = role === "user";
 	const [isLoading, setIsLoading] = useState(false);
 	const [traceIsLoading, setTraceIsLoading] = useState(false);
@@ -476,8 +482,9 @@ export function ChatMessageBubble(props: {
 					<div className="markdown-content">
 						{answerElements}
 					</div>
-					{chainType && txData && (chainType === 'evm' || chainType === 'tron') && <SendEVMTransaction txData={txData} name={txName}></SendEVMTransaction>}
-					{chainType && txData && chainType === 'sol' && <SendSolanaTransaction txData={txData} name={txName}></SendSolanaTransaction>}
+					{txDatas?.chainType && txDatas.txData && (txDatas.chainType === 'evm' || txDatas.chainType === 'tron') && <SendEVMTransaction txData={txDatas.txData} name={txDatas.txName} orderInfo={txDatas.orderInfo}></SendEVMTransaction>}
+					{txDatas?.chainType && txDatas.txData && txDatas.chainType === 'sol' && <SendSolanaTransaction txData={txDatas.txData} name={txDatas.txName} orderInfo={txDatas.orderInfo}></SendSolanaTransaction>}
+
 				</MessageContent>
 			)}
 

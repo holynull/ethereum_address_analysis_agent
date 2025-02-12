@@ -72,7 +72,7 @@ def swap_quote(
         from_token_amount (str): Amount of token to sell (with decimals)
         from_token_chain (str): Blockchain of token to sell
         to_token_chain (str): Blockchain of token to receive
-        user_addr (str, optional): User's wallet address
+        user_addr (str, optional): The address which token transfer from.
         source_type (str, optional): Device type (H5/IOS/Android)
 
     Returns:
@@ -104,8 +104,8 @@ def swap_quote(
             "fromTokenAddress": from_token_address,
             "toTokenAddress": to_token_address,
             "fromTokenAmount": from_token_amount,
-            "fromTokenChain": from_token_chain,
-            "toTokenChain": to_token_chain,
+            "fromTokenChain": from_token_chain.upper(),
+            "toTokenChain": to_token_chain.upper(),
         }
 
         # Add optional parameters if provided
@@ -153,7 +153,7 @@ def generate_swap_tx_data(
     slippage: float = None,
 ) -> Optional[Dict]:
     """
-    Generate a token swap transaction data using the Bridgers API.
+    Notify the front end to generate a button to send a token swap transaction.
 
     Args:
         from_token_address (str): Source token contract address, `address` in the return from `get_available_tokens`
@@ -311,12 +311,15 @@ def generate_swap_tx_data(
         "slippage": slippage,
     }
     # Return transaction data
-    return {
-        "success": True,
-        "message": "From_chain:{from_token_chain}",
-        "swap_data": swap_data,
-        "order_info": order_info,
-    }
+    return (
+        "Already notify the front end to generate a button to sign the transaction data and send the transaction. The button will be named after the `name` in the data.",
+        {
+            "success": True,
+            "message": "From_chain:{from_token_chain}",
+            "swap_data": swap_data,
+            "order_info": order_info,
+        },
+    )
 
 
 @tool

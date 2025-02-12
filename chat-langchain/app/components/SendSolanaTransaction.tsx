@@ -11,21 +11,23 @@ import {
 	LAMPORTS_PER_SOL
 } from '@solana/web3.js'
 import { useState } from "react";
-import { ButtonGroup, Button, Tooltip } from '@chakra-ui/react'
+import { ButtonGroup, Button, Tooltip, useToast } from '@chakra-ui/react'
 
 import { wcModal } from "../context/appkit"
 import { solana } from "@reown/appkit/networks";
 
 
 // 修改组件定义,接收并使用 children 属性
-export function SendSolanaTransaction(props: { txData: any, name: string | undefined }) {
+export function SendSolanaTransaction(props: { txData: any, name: string | undefined, orderInfo?: any }) {
 	const [isShow, setShow] = useState(true)
 	const { walletProvider } = useAppKitProvider<Provider>('solana')
 	const { connection } = useAppKitConnection()
 	const { open, close } = useAppKit();
 	const { address, isConnected, caipAddress, status, embeddedWalletInfo } = useAppKitAccount()
 	const [isLoading, setLoading] = useState<boolean>(false);
-	const isDisabled = isLoading || !isConnected || !connection || !props.txData;
+	const toast = useToast();
+	const { txData, name, orderInfo } = props;
+	const isDisabled = isLoading || !isConnected || !connection || !txData;
 
 	// Get disabled reason for tooltip
 	const getDisabledReason = () => {
@@ -36,19 +38,30 @@ export function SendSolanaTransaction(props: { txData: any, name: string | undef
 		return '';
 	}
 	const signAndSendTransaction = async () => {
+		if (!isConnected) {
+			toast.closeAll();
+			toast({
+				title: 'Wallet Connection',
+				description: 'Connect to the wallet. And try again.',
+				status: 'warning',
+				duration: 5000,
+				isClosable: true,
+				position: 'top'
+			});
+			await open({ view: "Connect" });
+			return
+		}
 		if (!isLoading) {
 			try {
 				setLoading(true);
-				if (!connection) {
-					await wcModal.switchNetwork(solana)
-					// await open({ view: 'Connect' })
-				}
+				wcModal.switchNetwork(solana)
+				// await open({ view: 'Connect' })
 				// 1. 创建Transaction实例
 				const transaction = new Transaction();
-				console.log(props.txData)
+				console.log(txData)
 
 				// 2. 遍历tx数组,构建每个TransactionInstruction
-				for (const instruction of props.txData.tx) {
+				for (const instruction of txData.tx) {
 					// 2.1 处理account keys
 					const keys = instruction.keys.map((key: any) => ({
 						pubkey: new PublicKey(key.pubkey),
@@ -76,28 +89,123 @@ export function SendSolanaTransaction(props: { txData: any, name: string | undef
 					const { blockhash } = await connection.getLatestBlockhash();
 					transaction.recentBlockhash = blockhash;
 					transaction.feePayer = new PublicKey(address as any);
-					if (props.txData.signer) {
+					if (txData.signer) {
 						const privateKey = Uint8Array.from(props.txData.signer);
 						const signer = Keypair.fromSecretKey(privateKey);
 						transaction.sign(signer);
 					}
+					// Show wallet confirmation toast
+					toast({
+						title: "Confirm Transaction",
+						description: 'Please confirm the transaction in your wallet APP.',
+						status: 'warning',
+						duration: null,
+						isClosable: true,
+						position: 'top'
+					});
+
 					// First sign the transaction
-					const signedTx = await walletProvider.sendTransaction(transaction, connection);
-					// Then send the signed transaction
-					// const tx = await connection.sendRawTransaction(signedTx.serialize());
-					console.log(signedTx)
-					// setShow(false)
-				} else {
-					console.log("solana provider connection is " + connection)
+					let signedTx;
+					try {
+						signedTx = await walletProvider.sendTransaction(transaction, connection);
+						// Close wallet confirmation toast and show success
+						toast.closeAll();
+						toast({
+							title: 'Transaction Send',
+							description: 'Success.',
+							status: 'success',
+							duration: 5000,
+							isClosable: true,
+							position: 'top'
+						});
+					} catch (error: any) {
+						// Close wallet confirmation toast and show error
+						toast.closeAll();
+						toast({
+							title: 'Transaction Failed',
+							description: error?.message || 'Transaction failed.',
+							status: 'error',
+							duration: 5000,
+							isClosable: true,
+							position: 'top'
+						});
+						console.log(error);
+					}
+					if (signedTx) {
+						const hash = signedTx;
+						console.log('Transaction hash:', hash);
+						// Generate order record after transaction is sent
+						try {
+							await fetch(process.env.NEXT_PUBLIC_API_URL + '/generate_swap_order', {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({
+									hash: hash,
+									from_token_address: orderInfo.from_token_address,
+									to_token_address: orderInfo.to_token_address,
+									from_address: orderInfo.from_address,
+									to_address: orderInfo.to_address,
+									from_token_chain: orderInfo.from_token_chain,
+									to_token_chain: orderInfo.to_token_chain,
+									from_token_amount: orderInfo.from_token_amount,
+									amount_out_min: orderInfo.amount_out_min,
+									from_coin_code: orderInfo.from_coin_code,
+									to_coin_code: orderInfo.to_coin_code,
+									source_type: orderInfo.source_type,
+									slippage: orderInfo.slippage
+								})
+							});
+							toast.closeAll();
+							toast({
+								title: 'Order Updated Success',
+								description: 'Order update successful.',
+								status: 'success',
+								duration: 5000,
+								isClosable: true,
+								position: 'top'
+							});
+							console.log("Update order info success.")
+						} catch (error: any) {
+							toast.closeAll();
+							toast({
+								title: 'Order Update Failed',
+								description: error?.message || 'Order update failed.',
+								status: 'error',
+								duration: 5000,
+								isClosable: true,
+								position: 'top'
+							});
+							console.error('Error generating swap order:', error);
+						}
+						// setShow(false)
+					} else {
+						toast.closeAll();
+						toast({
+							title: 'Error',
+							description: "solana provider connection is " + connection,
+							status: 'error',
+							duration: 5000,
+							isClosable: true,
+							position: 'top'
+						});
+						console.log("solana provider connection is " + connection)
+					}
 				}
-			} catch (e) {
+			} catch (e: any) {
+				toast.closeAll();
+				toast({
+					title: 'Error',
+					description: e?.message || 'Error occured.',
+					status: 'error',
+					duration: 5000,
+					isClosable: true,
+					position: 'top'
+				});
 				console.log(e)
 			} finally {
 				setLoading(false)
 			}
 		}
 	}
-	return isShow && <Tooltip label={isDisabled ? getDisabledReason() : ''}>
-		<Button onClick={async () => await signAndSendTransaction()} disabled={isLoading}>{props.name}</Button>
-	</Tooltip>
+	return isShow && <Button onClick={async () => await signAndSendTransaction()} isDisabled={isLoading}>{name}</Button>
 }

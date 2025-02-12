@@ -6,7 +6,7 @@ import { ethers } from "ethers";
 import { useSearchParams } from "next/navigation";
 import { RemoteRunnable } from "langchain/runnables/remote";
 
-import { ChatMessageBubble, Message } from "../components/ChatMessageBubble";
+import { ChatMessageBubble, Message, TxData } from "../components/ChatMessageBubble";
 import { AutoResizeTextarea } from "./AutoResizeTextarea";
 import { marked } from "marked";
 import { Renderer } from "marked";
@@ -265,6 +265,7 @@ export function ChatWindow(props: { conversationId: string }) {
 					content: messageValue,
 					role: "user" as const, // 明确指定类型
 					images: currentImages,
+					txDatas: []
 				} as Message
 			];
 			setTimeout(scrollToBottom, 0);
@@ -512,6 +513,7 @@ export function ChatWindow(props: { conversationId: string }) {
 									} else if (newMessages[messageIndex] !== undefined) {
 										newMessages[messageIndex].content = parsedResult.trim();
 										newMessages[messageIndex].runId = runId;
+										// newMessages[messageIndex].txDatas = [];
 										// newMessages[messageIndex].sources = sources;
 									}
 									// 使用 setTimeout 确保在 DOM 更新后执行滚动
@@ -659,56 +661,61 @@ export function ChatWindow(props: { conversationId: string }) {
 									}
 								}
 							}
+							let orderInfo = null;
 							if ("name" in _chunk && (_chunk.name == "generate_swap_tx_data")) {
 								if ("data" in _chunk) {
 									var data = _chunk.data as object;
 									if ("output" in data) {
-										const result = data.output as any;
-										if (result["success"]) {
-											const swap_data = result["swap_data"] as any;
-											if (!swap_data.chain_type) {
-												throw new Error("Missing chain_type in swap data");
-											}
-											let signedTx = null;
-											if (swap_data.chain_type === "evm") {
-												// setTxDataEvm(swap_data.txData)
-												// setShowSendEvmTx(true)
-												chainType = 'evm'
-											} else if (swap_data.chain_type === "solana") {
-												if (!connection) {
-													wcModal.switchNetwork(solana)
-													// open({ view: "Connect" })
+										let result = data.output as any;
+										if (Array.isArray(result) && result.length >= 2) {
+											result = result[1] as any;
+											if (result["success"]) {
+												orderInfo = result.order_info;
+												const swap_data = result["swap_data"] as any;
+												if (!swap_data.chain_type) {
+													throw new Error("Missing chain_type in swap data");
 												}
-												// setTxDataSol(txData)
-												// setShowSendSolTx(true)
-												chainType = 'sol'
-												// if (walletInfo?.name === "Trust Wallet") {
-												// setTxDataSol(null)
-												// setShowSendSolTx(false)
-												// setTxDataSolTW(txData)
-												// setShowSendSolTxTW(true)
-												// }
-											} else if (swap_data.chain_type === "tron") {
-												if (!connection) {
-													wcModal.switchNetwork(solana)
-													// open({ view: "Connect" })
-												}
-												// setTxDataSol(txData)
-												// setShowSendSolTx(true)
-												chainType = 'tron'
-												// if (walletInfo?.name === "Trust Wallet") {
-												// setTxDataSol(null)
-												// setShowSendSolTx(false)
-												// setTxDataSolTW(txData)
-												// setShowSendSolTxTW(true)
-												// }
+												let signedTx = null;
+												if (swap_data.chain_type === "evm") {
+													// setTxDataEvm(swap_data.txData)
+													// setShowSendEvmTx(true)
+													chainType = 'evm'
+												} else if (swap_data.chain_type === "solana") {
+													if (!connection) {
+														wcModal.switchNetwork(solana)
+														// open({ view: "Connect" })
+													}
+													// setTxDataSol(txData)
+													// setShowSendSolTx(true)
+													chainType = 'sol'
+													// if (walletInfo?.name === "Trust Wallet") {
+													// setTxDataSol(null)
+													// setShowSendSolTx(false)
+													// setTxDataSolTW(txData)
+													// setShowSendSolTxTW(true)
+													// }
+												} else if (swap_data.chain_type === "tron") {
+													if (!connection) {
+														wcModal.switchNetwork(solana)
+														// open({ view: "Connect" })
+													}
+													// setTxDataSol(txData)
+													// setShowSendSolTx(true)
+													chainType = 'tron'
+													// if (walletInfo?.name === "Trust Wallet") {
+													// setTxDataSol(null)
+													// setShowSendSolTx(false)
+													// setTxDataSolTW(txData)
+													// setShowSendSolTxTW(true)
+													// }
 
-											} else {
-												console.error('Unsupported chain type:', swap_data.chain_type);
-												accumulatedMessage += `\nUnsupported chain type: ${swap_data.chain_type}`;
+												} else {
+													console.error('Unsupported chain type:', swap_data.chain_type);
+													accumulatedMessage += `\nUnsupported chain type: ${swap_data.chain_type}`;
+												}
+												txData = swap_data.txData
+												txName = swap_data.name
 											}
-											txData = swap_data.txData
-											txName = swap_data.name
 										}
 									}
 								}
@@ -728,18 +735,29 @@ export function ChatWindow(props: { conversationId: string }) {
 										runId: runId,
 										sources: sources,
 										role: "assistant",
-										chainType: chainType,
-										txData: txData,
-										txName: txName,
+										txDatas: {
+											chainType: chainType,
+											txData: txData,
+											txName: txName,
+											orderInfo: orderInfo,
+										}
+
 									});
 								} else if (newMessages[messageIndex] !== undefined) {
 									// newMessages[messageIndex].content = parsedResult.trim();
 									newMessages[messageIndex].runId = runId;
-									newMessages[messageIndex].sources = sources;
+									// newMessages[messageIndex].sources = sources;
 									if (chainType && txData) {
-										newMessages[messageIndex].chainType = chainType;
-										newMessages[messageIndex].txData = txData;
-										newMessages[messageIndex].txName = txName;
+										if (!newMessages[messageIndex].txDatas) {
+											newMessages[messageIndex].txDatas = {
+												chainType: chainType,
+												txData: txData,
+												txName: txName,
+												orderInfo: orderInfo,
+											}
+										}
+										chainType = undefined;
+										txData = null;
 									}
 								}
 								// 使用 setTimeout 确保在 DOM 更新后执行滚动
@@ -836,7 +854,7 @@ export function ChatWindow(props: { conversationId: string }) {
 
 	return (
 		<div className="min-h-screen w-full bg-[#131318]">
-			{showPasteHint && <GlobalPasteHint onClose={handleClosePasteHint} />}
+			{/* {showPasteHint && <GlobalPasteHint onClose={handleClosePasteHint} />} */}
 			<div className="flex flex-col min-h-screen w-full bg-[#131318] overflow-x-hidden">
 				<div className="flex flex-col items-center p-4 md:p-8 pb-16 grow w-full max-w-[1200px] mx-auto">
 					<Flex

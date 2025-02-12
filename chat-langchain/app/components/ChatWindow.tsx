@@ -661,7 +661,7 @@ export function ChatWindow(props: { conversationId: string }) {
 									}
 								}
 							}
-							let orderInfo = null;
+							let orderInfo:any = null;
 							if ("name" in _chunk && (_chunk.name == "generate_swap_tx_data")) {
 								if ("data" in _chunk) {
 									var data = _chunk.data as object;

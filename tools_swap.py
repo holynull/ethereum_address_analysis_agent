@@ -218,10 +218,13 @@ def generate_swap_tx_data(
 
     # Check response status code
     if data.get("resCode") != 100:
-        return {
-            "success": False,
-            "message": f"API request failed: {data.get('resMsg')}",
-        }
+        return (
+            f"Generate transaction data API error occured. {data.get('resCode')}",
+            {
+                "success": False,
+                "message": f"API request failed: {data.get('resMsg')}",
+            },
+        )
     tokens = get_available_tokens.invoke({})
     evm_from_token = [
         t
@@ -299,6 +302,13 @@ def generate_swap_tx_data(
             "chain_type": "unknown",
             "name": "Send Swap Transaction",
         }
+        return (
+            f"Can't get from chain type from data of token address: `{from_token_address}` and from token chain `{from_token_chain}`",
+            {
+                "success": False,
+                "message": f"Can't get from chain type from token address: `{from_token_address}` and from token chain `{from_token_chain}`",
+            },
+        )
 
     order_info = {
         "from_token_address": from_token_address,

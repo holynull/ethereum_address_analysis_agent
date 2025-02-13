@@ -42,8 +42,10 @@ export function SendEVMTransaction(props: { txData: any, name: string | undefine
 			try {
 				console.log("Wallet connected?" + isConnected)
 				let curNet = networks.filter(network => network.id === chainId);
-				if (curNet && curNet.length > 0)
-					wcModal.switchNetwork(curNet[0])
+				if (curNet && curNet.length > 0){
+					wcModal.switchNetwork(curNet[0]);
+					switchNetwork(curNet[0]);
+				}
 				// const provider = new ethers.providers.(walletProvider as UniversalProvider)
 				const provider = new ethers.providers.Web3Provider(walletProvider as UniversalProvider)
 				const signer = provider.getSigner(address)
@@ -71,7 +73,7 @@ export function SendEVMTransaction(props: { txData: any, name: string | undefine
 				// const tx = await provider.request({ "method": "eth_sendTransaction", "params": transaction }, chainId?.toString()) as any;
 				const tx = await signer.sendTransaction(transaction)
 				// await sendTransaction(transaction)
-				if (tx) {
+				if (tx && name === 'Send Swap Transaction') {
 					console.log('Transaction hash:', tx.hash);
 					toast.closeAll();
 					toast({

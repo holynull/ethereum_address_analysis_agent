@@ -426,8 +426,8 @@ def generate_approve_erc20(
         {
             "to": token_address,
             "data": tx_data,
-            "gasLimit": str(gas_limit),
-            "gasPrice": str(gas_price),
+            # "gasLimit": str(gas_limit),
+            # "gasPrice": str(gas_price),
             "value": "0x0",
             "chain_id": chain_id,
             "name": "Approve",

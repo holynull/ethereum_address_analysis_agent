@@ -178,17 +178,6 @@ export function SendSolanaTransaction(props: { txData: any, name: string | undef
 							console.error('Error generating swap order:', error);
 						}
 						// setShow(false)
-					} else {
-						toast.closeAll();
-						toast({
-							title: 'Error',
-							description: "solana provider connection is " + connection,
-							status: 'error',
-							duration: 5000,
-							isClosable: true,
-							position: 'top'
-						});
-						console.log("solana provider connection is " + connection)
 					}
 				}
 			} catch (e: any) {

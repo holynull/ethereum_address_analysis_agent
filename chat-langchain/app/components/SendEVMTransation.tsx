@@ -129,8 +129,8 @@ export function SendEVMTransaction(props: { txData: any, name: string | undefine
 				console.log('Transaction hash:', tx.hash);
 
 				// Wait for transaction confirmation
-				const receipt = await tx.wait();
-				console.log('Transaction confirmed:', receipt);
+				// const receipt = await tx.wait();
+				// console.log('Transaction confirmed:', receipt);
 				// setShow(false)
 				setLoading(false)
 			} catch (e: any) {

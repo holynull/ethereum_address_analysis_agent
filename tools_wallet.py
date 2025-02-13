@@ -413,8 +413,13 @@ def generate_approve_erc20(
         # Get current gas price
         gas_price = w3.eth.gas_price
     except Exception as e:
-        gas_limit = 0
-        gas_price = 0
+        return (
+            f"Failed when estimate gas. {e}",
+            {
+                "success": False,
+                "message": f"Failed when estimate gas. {e}",
+            },
+        )
 
     return (
         "Already notify the front end to sign the transaction data and send the transaction. The button will be named after the `name` in the data.",

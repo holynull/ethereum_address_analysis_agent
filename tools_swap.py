@@ -255,8 +255,13 @@ def generate_swap_tx_data(
             # Get current gas price
             gas_price = w3.eth.gas_price
         except Exception as e:
-            gas_limit = 21000
-            gas_price = 1
+            return (
+                f"Failed when estimate gas. {e}",
+                {
+                    "success": False,
+                    "message": f"Failed when estimate gas. {e}",
+                },
+            )
         swap_data = {
             "txData": data.get("data", {}).get("txData"),
             "gasLimit": gas_limit,

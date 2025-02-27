@@ -144,6 +144,14 @@ llm_agent = ChatAnthropic(
         streaming=True,
         verbose=True,
     ),
+	anthropic_claude_3_7_sonnet=ChatAnthropic(
+        model="claude-3-7-sonnet-20250219",
+        # max_tokens=,
+        temperature=0.9,
+        # anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "not_provided"),
+        streaming=True,
+        verbose=True,
+    ),
     openai_gpt_4o=ChatOpenAI(
         temperature=0.9,
         model="gpt-4o",

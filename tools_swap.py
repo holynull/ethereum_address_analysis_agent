@@ -69,7 +69,7 @@ def swap_quote(
     Args:
         from_token_address (str): Contract address of token to sell
         to_token_address (str): Contract address of token to receive
-        from_token_amount (str): Amount of token to sell (with decimals)
+        from_token_amount (str): Amount of token to sell (must be calculated from actual amount and corresponding 'decimals' value from `get_available_tokens`)
         from_token_chain (str): Blockchain of token to sell
         to_token_chain (str): Blockchain of token to receive
         user_addr (str, optional): The address which token transfer from.
@@ -107,6 +107,9 @@ def swap_quote(
             "fromTokenChain": from_token_chain.upper(),
             "toTokenChain": to_token_chain.upper(),
         }
+        # import json
+
+        # print(json.dumps(params))
 
         # Add optional parameters if provided
         if user_addr:
@@ -120,13 +123,18 @@ def swap_quote(
 
         # Parse response data
         data = response.json()
+        # print(data)
 
         # Check response status code
         if data.get("resCode") != 100:
             return f"API request failed: {data.get('resMsg')}"
 
         # Return quote data
-        return data.get("data", {}).get("txData", {})
+        txData = data.get("data", {}).get("txData", {})
+        if txData["amountOutMin"] == "0":
+            return f"Error: Parameter `from_token_amount={from_token_amount}` is wrong, please check the `decimals` of the token on `from_token_address`."
+        else:
+            return txData
 
     except requests.exceptions.RequestException as e:
         return f"API request failed: {str(e)}"

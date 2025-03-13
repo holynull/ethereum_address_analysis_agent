@@ -27,7 +27,7 @@ import {
 import { ArrowUpIcon, CloseIcon, Icon, SmallCloseIcon } from "@chakra-ui/icons";
 import { Select } from "@chakra-ui/react";
 import { Source } from "./SourceBubble";
-import { AIMessageChunk } from "@langchain/core/messages"
+import { AIMessageChunk, ToolMessage } from "@langchain/core/messages"
 import { FaCircleNotch, FaTools, FaKeyboard, FaCheck, FaLightbulb, FaPlus, FaWallet } from 'react-icons/fa';
 
 import {
@@ -429,10 +429,11 @@ export function ChatWindow(props: { conversationId: string }) {
 			const llmDisplayName = llm ?? "openai_gpt_3_5_turbo";
 			let streams = await remoteChain.stream(
 				{
-					input: messageValue,
+					messages: [{ "type": "human", "content": messageValue }],
 					wallet_address: address ? address : "",
 					chain_id: chainId ? chainId.toString() : "-1",
 					wallet_is_connected: isConnected,
+					llm: llmDisplayName,
 					// chat_history: chatHistory,
 					chat_history: [],
 					image_urls: currentImages,
@@ -441,6 +442,7 @@ export function ChatWindow(props: { conversationId: string }) {
 				{
 					configurable: {
 						llm: llmDisplayName,
+						thread_id: conversationId,
 					},
 					tags: ["model:" + llmDisplayName],
 					metadata: {
@@ -456,6 +458,7 @@ export function ChatWindow(props: { conversationId: string }) {
 				// },
 			);
 			for await (const chunk of streams) {
+				console.log(chunk)
 				var _chunk: object
 				if (typeof chunk === "object") {
 					_chunk = chunk as object;
@@ -490,8 +493,9 @@ export function ChatWindow(props: { conversationId: string }) {
 										var c_t = aichunk.content[0]['text'] as string;
 										accumulatedMessage += c_t;
 									}
-									else
-										console.log(_chunk)
+									else {
+										// console.log(_chunk)
+									}
 								}
 							}
 							var parsedResult = marked.parse(accumulatedMessage);
@@ -661,12 +665,13 @@ export function ChatWindow(props: { conversationId: string }) {
 									}
 								}
 							}
-							let orderInfo:any = null;
+							let orderInfo: any = null;
 							if ("name" in _chunk && (_chunk.name == "generate_swap_tx_data")) {
 								if ("data" in _chunk) {
 									var data = _chunk.data as object;
 									if ("output" in data) {
-										let result = data.output as any;
+										let message = data.output as ToolMessage;
+										let result = JSON.parse(message.content as string);
 										if (Array.isArray(result) && result.length >= 2) {
 											result = result[1] as any;
 											if (result["success"]) {

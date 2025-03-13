@@ -39,13 +39,14 @@ from langchain_core.messages import AIMessage, FunctionMessage, HumanMessage
 
 
 class Input(BaseModel):
-    input: str
+    messages: list[dict]
     wallet_address: str
     chain_id: str
     wallet_is_connected: bool
-    image_urls: list[str]
-    pdf_files: list[str]
-    chat_history: List[Union[HumanMessage, AIMessage, FunctionMessage]]
+    llm: str
+    # image_urls: list[str]
+    # pdf_files: list[str]
+    # chat_history: List[Union[HumanMessage, AIMessage, FunctionMessage]]
 
 
 class Output(BaseModel):
@@ -55,57 +56,69 @@ class Output(BaseModel):
 chat_memories = {}
 agent_executors = {}
 
+from swap_graph import graph_builder as swap_graph_builder
+
+from langgraph.checkpoint.memory import MemorySaver
+
+memory = MemorySaver()
+
+graph = swap_graph_builder.compile(checkpointer=memory, debug=True)
+
 
 @app.post("/chat/stream", include_in_schema=False)
 async def simple_invoke(request: Request) -> Response:
     """Handle a request."""
     # The API Handler validates the parts of the request
     # that are used by the runnnable (e.g., input, config fields)
-    body = await request.json()
-    conversation_id = body["config"]["metadata"]["conversation_id"]
-    is_multimodal = body["config"]["metadata"]["is_multimodal"]
-    image_urls = body["input"]["image_urls"]
-    pdf_files = body["input"]["pdf_files"]
-    if conversation_id in chat_memories:
-        # agent_executor = agent_executors[conversation_id]
-        memory = chat_memories[conversation_id]
-        agent_executor = create_agent_executor(
-            llm_agent=llm_agent,
-            memory=memory,
-            is_multimodal=is_multimodal,
-            image_urls=image_urls,
-            pdf_files=pdf_files,
-        )
-        agent_executors[conversation_id] = {
-            "executor": agent_executor,
-            "is_multimodal": is_multimodal,
-        }
-        api_handler = APIHandler(
-            agent_executor.with_types(input_type=Input, output_type=Output),
-            path="/chat",
-            # config_keys=["metadata", "configurable", "tags", "llm"],
-        )
-    else:
-        memory = ConversationBufferMemory(
-            input_key="input", memory_key="chat_history", return_messages=True
-        )
-        agent_executor = create_agent_executor(
-            llm_agent=llm_agent,
-            memory=memory,
-            is_multimodal=is_multimodal,
-            image_urls=image_urls,
-            pdf_files=pdf_files,
-        )
-        chat_memories[conversation_id] = memory
-        agent_executors[conversation_id] = {
-            "executor": agent_executor,
-            "is_multimodal": is_multimodal,
-        }
-        api_handler = APIHandler(
-            agent_executor.with_types(input_type=Input, output_type=Output),
-            path="/chat",
-            # config_keys=["metadata", "configurable", "tags", "llm"],
-        )
+    # body = await request.json()
+    # conversation_id = body["config"]["metadata"]["conversation_id"]
+    # is_multimodal = body["config"]["metadata"]["is_multimodal"]
+    # image_urls = body["input"]["image_urls"]
+    # pdf_files = body["input"]["pdf_files"]
+    # if conversation_id in chat_memories:
+    #     # agent_executor = agent_executors[conversation_id]
+    #     memory = chat_memories[conversation_id]
+    #     agent_executor = create_agent_executor(
+    #         llm_agent=llm_agent,
+    #         memory=memory,
+    #         is_multimodal=is_multimodal,
+    #         image_urls=image_urls,
+    #         pdf_files=pdf_files,
+    #     )
+    #     agent_executors[conversation_id] = {
+    #         "executor": agent_executor,
+    #         "is_multimodal": is_multimodal,
+    #     }
+    #     api_handler = APIHandler(
+    #         agent_executor.with_types(input_type=Input, output_type=Output),
+    #         path="/chat",
+    #         # config_keys=["metadata", "configurable", "tags", "llm"],
+    #     )
+    # else:
+    #     memory = ConversationBufferMemory(
+    #         input_key="input", memory_key="chat_history", return_messages=True
+    #     )
+    #     agent_executor = create_agent_executor(
+    #         llm_agent=llm_agent,
+    #         memory=memory,
+    #         is_multimodal=is_multimodal,
+    #         image_urls=image_urls,
+    #         pdf_files=pdf_files,
+    #     )
+    #     chat_memories[conversation_id] = memory
+    #     agent_executors[conversation_id] = {
+    #         "executor": agent_executor,
+    #         "is_multimodal": is_multimodal,
+    #     }
+    #     api_handler = APIHandler(
+    #         agent_executor.with_types(input_type=Input, output_type=Output),
+    #         path="/chat",
+    #         # config_keys=["metadata", "configurable", "tags", "llm"],
+    #     )
+    api_handler = APIHandler(
+        graph.with_types(input_type=Input, output_type=Output),
+        path="/chat",
+    )
     return await api_handler.astream_events(request)
 
 

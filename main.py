@@ -62,7 +62,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 memory = MemorySaver()
 
-graph = swap_graph_builder.compile(checkpointer=memory, debug=True)
+graph = swap_graph_builder.compile(checkpointer=memory, debug=False)
 
 
 @app.post("/chat/stream", include_in_schema=False)

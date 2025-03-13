@@ -549,7 +549,9 @@ export function ChatWindow(props: { conversationId: string }) {
 								if ("data" in _chunk) {
 									var data = _chunk.data as object;
 									if ("output" in data) {
-										var _output = data.output as Array<any>
+										let message = data.output as ToolMessage;
+										let result = JSON.parse(message.content as string);
+										var _output = result;//data.output as Array<any>
 										currentSources = _output.map((doc: Record<string, any>) => ({
 											url: doc.value.url,
 											title: doc.value.title,
@@ -562,7 +564,9 @@ export function ChatWindow(props: { conversationId: string }) {
 								if ("data" in _chunk) {
 									var data = _chunk.data as object;
 									if ("output" in data) {
-										var output = eval('(' + data.output + ')') as object;
+										let message = data.output as ToolMessage;
+										let result = JSON.parse(message.content as string);
+										var output = result;//eval('(' + data.output + ')') as object;
 										if ("search_result" in output) {
 											var search_result = output.search_result as Array<any>
 											currentSources = search_result.map((doc: Record<string, any>) => ({
@@ -578,8 +582,10 @@ export function ChatWindow(props: { conversationId: string }) {
 								if ("data" in _chunk) {
 									var data = _chunk.data as object;
 									if ("output" in data) {
+										let message = data.output as ToolMessage;
+										let result = JSON.parse(message.content as string);
 										// 处理生成的图片数据
-										const generatedImages = data.output as string[];
+										const generatedImages = result as string[];
 										const imageMarkdowns = generatedImages.map(url => `${url}\n`);
 										accumulatedMessage += imageMarkdowns.join('');
 									}
@@ -592,7 +598,9 @@ export function ChatWindow(props: { conversationId: string }) {
 									var data = _chunk.data as object;
 									if ("output" in data) {
 										// 处理生成的图片数据
-										const results = data.output as string[];
+										let message = data.output as ToolMessage;
+										let results = JSON.parse(message.content as string) as [];
+										// const results = data.output as string[];
 										const func_return = results.map(r => `${r}\n`);
 										let return_str = ""
 										if (func_return.length > 1) {
@@ -606,7 +614,8 @@ export function ChatWindow(props: { conversationId: string }) {
 								if ("data" in _chunk) {
 									var data = _chunk.data as object;
 									if ("output" in data) {
-										const result = data.output as string;
+										let message = data.output as ToolMessage;
+										let result = JSON.parse(message.content as string);
 										await connectWallet();
 										// await connect_solana_wallet();
 										// todo: use walletconnect appkit to impletment connect wallet
@@ -617,7 +626,8 @@ export function ChatWindow(props: { conversationId: string }) {
 								if ("data" in _chunk) {
 									var data = _chunk.data as object;
 									if ("output" in data) {
-										const result = data.output as any;
+										let message = data.output as ToolMessage;
+										let result = JSON.parse(message.content as string);
 										change_network_to(result)
 									}
 								}
@@ -650,7 +660,8 @@ export function ChatWindow(props: { conversationId: string }) {
 								if ("data" in _chunk) {
 									var data = _chunk.data as object;
 									if ("output" in data) {
-										const result = data.output;
+										let message = data.output as ToolMessage;
+										let result = JSON.parse(message.content as string);
 										if (Array.isArray(result) && result.length >= 2) {
 											txData = result[1] as any;
 											if (txData["chain_id"] != chainId && txData['chain_id'] !== 'tron') {
@@ -751,7 +762,7 @@ export function ChatWindow(props: { conversationId: string }) {
 								} else if (newMessages[messageIndex] !== undefined) {
 									// newMessages[messageIndex].content = parsedResult.trim();
 									newMessages[messageIndex].runId = runId;
-									// newMessages[messageIndex].sources = sources;
+									newMessages[messageIndex].sources = sources;
 									if (chainType && txData) {
 										if (!newMessages[messageIndex].txDatas) {
 											newMessages[messageIndex].txDatas = {

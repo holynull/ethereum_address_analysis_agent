@@ -1,0 +1,107 @@
+import datetime
+from langchain_core.tools import tool
+
+
+@tool
+def route_to_swap_agent():
+    """
+    Useful when you need to swap crypto currencies on block chain.
+    Include:
+        - Get the list of supported tokens for token cross chain swap functionality.
+        - Get a detailed quote for token cross chain swap transaction, including expected output amount, fees, and transaction parameters.
+        - Notify the front end to generate a button to send a token swap transaction.
+        - Get transaction records using the Bridgers API.
+        - Get detailed information about a specific transaction using the Bridgers API.
+    """
+    return "Now requesting Swap Agent."
+
+
+@tool
+def route_to_wallet_agent():
+    """
+    Useful when you have question about crypto wallet.
+    Include:
+        - Notify front end to connect to wallet.
+        - Generate unsigned transaction data for ERC20 token transfer.
+        - Get the decimals of an ERC20 token.
+        - Generate transaction data for transfer ERC20 token to `to_address`.
+        - Get the balance of an ERC20 token for a specific address.
+        - Generate transaction data for transfer native token (like ETH, BNB) to `to_address`.
+        - Notify the front end to change the connected network to the target network in wallet.
+        - Generate unsigned transaction data for ERC20 token approve.
+        - Notify the front end to generate a button to send tansaction data for approve spender to use ERC20 token.
+        - Check the approved amount of an ERC20 token for a specific spender.
+        - Query SOL balance for a specified wallet address on Solana blockchain.
+        - Query SPL token balance for a specified wallet address on Solana blockchain.
+        - Get TRC20 token balance of a wallet address.
+        - Get TRX balance of a wallet address.
+        - Notify the front end to generate a button to send transaction data for TRC20 token approve.
+        - Generate transaction data for approving TRC20 token spending.
+        - Get the approved amount of a TRC20 token for a specific spender.
+    """
+    return "Now requesting Wallet Agent."
+
+
+@tool
+def route_to_search_agent():
+    """
+    Useful when you need search.
+    Include:
+        - Performs a web search using Google search engine and returns formatted results.
+        - Performs a news search using Google News and returns formatted results in JSON format.
+        - Performs a place search using Google Places API and returns raw search results.
+        - Performs an image search using Google Images and returns raw search results.
+        - Access the links content
+    """
+    return "Now requesting Search Agent."
+
+
+@tool
+def route_to_cryptocurrency_quote_agent():
+    """
+    Useful when you need cryptocurrency latest quote.
+    Include:
+        - Retrieves the latest cryptocurrency quotation data from CoinMarketCap API.
+        - Retrieves detailed metadata and information about a cryptocurrency from CoinMarketCap API.
+        - Analyzes trading signals for cryptocurrency pairs against USDT using TradingView technical analysis.
+    """
+    return "Now requesting Cryptocurrency quote Agent."
+
+
+@tool
+def get_utc_time():
+    """
+    Useful when you need to get the current UTC time of the system.
+    Returns the current UTC time in ISO format (YYYY-MM-DD HH:MM:SS.mmmmmm).
+    """
+    import pytz
+
+    return datetime.datetime.now(tz=pytz.UTC).isoformat(" ")
+
+
+from graph_swap import graph as swap_graph
+from graph_wallet import graph as wallet_graph
+from graph_search import graph as search_webpage_graph
+from graph_quote import graph as quote_graph
+
+
+def get_next_node(tool_name: str):
+    if tool_name == route_to_swap_agent.get_name():
+        return swap_graph.get_name()
+    elif tool_name == route_to_wallet_agent.get_name():
+        return wallet_graph.get_name()
+    elif tool_name == route_to_search_agent.get_name():
+        return search_webpage_graph.get_name()
+    elif tool_name == route_to_cryptocurrency_quote_agent.get_name():
+        return quote_graph.get_name()
+    else:
+        return None
+
+
+tools = [
+    get_utc_time,
+    route_to_swap_agent,
+    route_to_wallet_agent,
+    route_to_search_agent,
+    route_to_cryptocurrency_quote_agent,
+]

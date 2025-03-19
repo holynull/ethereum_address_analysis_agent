@@ -7,7 +7,8 @@ from uuid import UUID
 import langsmith
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from langserve import APIHandler, add_routes
+from langserve import add_routes
+from api_handler import APIHandler
 
 # from langsmith import Client
 from pydantic import BaseModel, Field
@@ -43,6 +44,7 @@ class Input(BaseModel):
     wallet_address: str
     chain_id: str
     wallet_is_connected: bool
+    time_zone: str
     llm: str
     # image_urls: list[str]
     # pdf_files: list[str]
@@ -56,13 +58,17 @@ class Output(BaseModel):
 chat_memories = {}
 agent_executors = {}
 
-from swap_graph import graph_builder as swap_graph_builder
+# from graph_chatbot import graph_builder as swap_graph_builder
 
 from langgraph.checkpoint.memory import MemorySaver
 
 memory = MemorySaver()
 
-graph = swap_graph_builder.compile(checkpointer=memory, debug=False)
+# graph = swap_graph_builder.compile(checkpointer=memory, debug=False)
+
+from graph_chatbot import graph_builder
+
+graph = graph_builder.compile(checkpointer=memory, debug=False)
 
 
 @app.post("/chat/stream", include_in_schema=False)

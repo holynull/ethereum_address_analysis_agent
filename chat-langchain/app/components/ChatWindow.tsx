@@ -5,9 +5,10 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { ethers } from "ethers";
 import { useSearchParams } from "next/navigation";
 import { RemoteRunnable } from "langchain/runnables/remote";
+import { Client } from "@langchain/langgraph-sdk";
 
 import { ChatMessageBubble, Message, TxData } from "../components/ChatMessageBubble";
-import { AutoResizeTextarea } from "./AutoResizeTextarea";
+import { AutoResizeTextarea } from "./AutoResizeTextarea"
 import { marked } from "marked";
 import { Renderer } from "marked";
 import hljs from "highlight.js";
@@ -49,7 +50,13 @@ enum ProcessingStatus {
 	InvokingTool = "invoking_tool",
 	Processing = "processing",
 	Typing = "typing",
-	Completed = "completed"
+	Completed = "completed",
+	SearchStart = "searching-start",
+	SearchEnd = "searching-end",
+	ReadLinksContentStart = "ReadLinksContentStart",
+	ReadLinksContentEnd = "ReadLinksContentEnd",
+	ExtractLinksContentStart = "ExtractLinksContentStart",
+	ExtractLinksContentEnd = "ExtractLinksContentEnd",
 }
 
 export function ChatWindow(props: { conversationId: string }) {
@@ -74,7 +81,7 @@ export function ChatWindow(props: { conversationId: string }) {
 	const openFileUpload = () => {
 		if (!showUpload) {
 			setShowUpload(prev => !prev);
-			console.log("show upload:" + showUpload)
+			// console.log("show upload:" + showUpload)
 		}
 	};
 
@@ -156,6 +163,48 @@ export function ChatWindow(props: { conversationId: string }) {
 					<div className="flex items-center text-green-500">
 						<FaCheck className="mr-2" size={20} />
 						<span>Completed</span>
+					</div>
+				);
+			case ProcessingStatus.SearchStart:
+				return (
+					<div className="flex items-center text-green-500">
+						<FaCheck className="mr-2" size={20} />
+						<span>Searching Started</span>
+					</div>
+				);
+			case ProcessingStatus.SearchEnd:
+				return (
+					<div className="flex items-center text-green-500">
+						<FaCheck className="mr-2" size={20} />
+						<span>Searching End</span>
+					</div>
+				);
+			case ProcessingStatus.ReadLinksContentStart:
+				return (
+					<div className="flex items-center text-green-500">
+						<FaCheck className="mr-2" size={20} />
+						<span>Reading Links from Search</span>
+					</div>
+				);
+			case ProcessingStatus.ReadLinksContentEnd:
+				return (
+					<div className="flex items-center text-green-500">
+						<FaCheck className="mr-2" size={20} />
+						<span>Reading Links from Search End</span>
+					</div>
+				);
+			case ProcessingStatus.ExtractLinksContentStart:
+				return (
+					<div className="flex items-center text-green-500">
+						<FaCheck className="mr-2" size={20} />
+						<span>Extracting Link's Content</span>
+					</div>
+				);
+			case ProcessingStatus.ExtractLinksContentEnd:
+				return (
+					<div className="flex items-center text-green-500">
+						<FaCheck className="mr-2" size={20} />
+						<span>Got Relevant Content from Link</span>
 					</div>
 				);
 		}
@@ -385,7 +434,7 @@ export function ChatWindow(props: { conversationId: string }) {
 			return `<li style="${markdownStyles.listItem}">${text}</li>`;
 		};
 		renderer.html = (html) => {
-			console.log(html)
+			// console.log(html)
 			// 这里可以添加一些验证逻辑，例如只允许特定的 iframe
 			// if (html.startsWith('<iframe') && html.includes('musse.ai')) {
 			// return html;
@@ -433,6 +482,7 @@ export function ChatWindow(props: { conversationId: string }) {
 					wallet_address: address ? address : "",
 					chain_id: chainId ? chainId.toString() : "-1",
 					wallet_is_connected: isConnected,
+					time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 					llm: llmDisplayName,
 					// chat_history: chatHistory,
 					chat_history: [],
@@ -468,10 +518,26 @@ export function ChatWindow(props: { conversationId: string }) {
 					var kind = "event" in _chunk ? _chunk.event : "";
 					switch (kind) {
 						case "on_chain_start":
-							setProcessingStatus(ProcessingStatus.SynthesizingQuestion);
+							if (_chunk && (_chunk as any).name == 'graph_search') {
+								setProcessingStatus(ProcessingStatus.SearchStart);
+							} else if (_chunk && (_chunk as any).name == 'node_read_content') {
+								setProcessingStatus(ProcessingStatus.ReadLinksContentStart);
+							} else if (_chunk && (_chunk as any).name == "node_extranct_relevant_content") {
+								setProcessingStatus(ProcessingStatus.ExtractLinksContentStart);
+							} else {
+								setProcessingStatus(ProcessingStatus.SynthesizingQuestion);
+							}
 							break;
 						case "on_chain_end":
-							setProcessingStatus(ProcessingStatus.Processing);
+							if (_chunk && (_chunk as any).name == 'graph_search') {
+								setProcessingStatus(ProcessingStatus.SearchEnd);
+							} else if (_chunk && (_chunk as any).name == 'node_read_content') {
+								setProcessingStatus(ProcessingStatus.ReadLinksContentEnd);
+							} else if (_chunk && (_chunk as any).name == "node_extranct_relevant_content") {
+								setProcessingStatus(ProcessingStatus.ExtractLinksContentEnd);
+							} else {
+								setProcessingStatus(ProcessingStatus.SynthesizingQuestion);
+							}
 							break;
 						case "on_chain_stream":
 							break
@@ -560,7 +626,7 @@ export function ChatWindow(props: { conversationId: string }) {
 									}
 								}
 							}
-							if ("name" in _chunk && (_chunk.name == "searchWebPageToAnswer" || _chunk.name == "searchNewsToAnswer")) {
+							if ("name" in _chunk && (_chunk.name == "search_webpage" || _chunk.name == "search_news")) {
 								if ("data" in _chunk) {
 									var data = _chunk.data as object;
 									if ("output" in data) {
@@ -615,7 +681,7 @@ export function ChatWindow(props: { conversationId: string }) {
 									var data = _chunk.data as object;
 									if ("output" in data) {
 										let message = data.output as ToolMessage;
-										let result = JSON.parse(message.content as string);
+										// let result = JSON.parse(message.content as string);
 										await connectWallet();
 										// await connect_solana_wallet();
 										// todo: use walletconnect appkit to impletment connect wallet

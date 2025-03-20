@@ -20,6 +20,7 @@ _llm = ChatAnthropic(
     verbose=True,
 )
 
+
 class SwapGraphState(TypedDict):
     # Messages have the type "list". The `add_messages` function
     # in the annotation defines how this state key should be updated
@@ -29,7 +30,7 @@ class SwapGraphState(TypedDict):
 
 graph_builder = StateGraph(SwapGraphState)
 
-from tools_quote import tools 
+from tools_quote import tools
 
 from langchain_core.prompts import (
     SystemMessagePromptTemplate,
@@ -40,7 +41,9 @@ from langgraph.utils.runnable import RunnableCallable
 
 
 def format_messages(state: SwapGraphState):
-    system_template = SystemMessagePromptTemplate.from_template("You are a useful assistant.")
+    from prompt_quote import system_prompt
+
+    system_template = SystemMessagePromptTemplate.from_template(system_prompt)
     system_message = system_template.format_messages()
     return system_message + state["messages"]
 

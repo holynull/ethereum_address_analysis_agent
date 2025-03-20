@@ -160,13 +160,13 @@ const styles = {
 		_hover: { backgroundColor: 'blackAlpha.800' },
 	},
 	grid: {
-		'&::-webkit-scrollbar': {
+		'::-webkit-scrollbar': {
 			width: '4px',
 		},
-		'&::-webkit-scrollbar-track': {
+		'::-webkit-scrollbar-track': {
 			background: 'rgba(0, 0, 0, 0.1)',
 		},
-		'&::-webkit-scrollbar-thumb': {
+		'::-webkit-scrollbar-thumb': {
 			background: 'rgba(255, 255, 255, 0.2)',
 			borderRadius: '2px',
 		},

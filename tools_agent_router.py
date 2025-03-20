@@ -5,8 +5,8 @@ from langchain_core.tools import tool
 @tool
 def route_to_swap_agent():
     """
-    Useful when you need to swap crypto currencies on block chain.
-    Include:
+    This tool will hand over the question to a Cryptocurrency Swap Expert.
+    Expert capabilities include:
         - Get the list of supported tokens for token cross chain swap functionality.
         - Get a detailed quote for token cross chain swap transaction, including expected output amount, fees, and transaction parameters.
         - Notify the front end to generate a button to send a token swap transaction.
@@ -19,8 +19,8 @@ def route_to_swap_agent():
 @tool
 def route_to_wallet_agent():
     """
-    Useful when you have question about crypto wallet.
-    Include:
+    This tool will hand over the question to a Cryptocurrency Wallet Expert.
+    Expert capabilities include:
         - Notify front end to connect to wallet.
         - Generate unsigned transaction data for ERC20 token transfer.
         - Get the decimals of an ERC20 token.
@@ -45,8 +45,8 @@ def route_to_wallet_agent():
 @tool
 def route_to_search_agent():
     """
-    Useful when you need search.
-    Include:
+    This tool will hand over the question to a Search Engine Expert.
+    Expert capabilities include:
         - Performs a web search using Google search engine and returns formatted results.
         - Performs a news search using Google News and returns formatted results in JSON format.
         - Performs a place search using Google Places API and returns raw search results.
@@ -59,8 +59,8 @@ def route_to_search_agent():
 @tool
 def route_to_cryptocurrency_quote_agent():
     """
-    Useful when you need cryptocurrency latest quote.
-    Include:
+    This tool will hand over the question to a Cryptocurrency Market Analysis Expert.
+    Expert capabilities include:
         - Retrieves the latest cryptocurrency quotation data from CoinMarketCap API.
         - Retrieves detailed metadata and information about a cryptocurrency from CoinMarketCap API.
         - Analyzes trading signals for cryptocurrency pairs against USDT using TradingView technical analysis.

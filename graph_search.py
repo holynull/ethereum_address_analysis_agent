@@ -55,8 +55,8 @@ from langchain_community.document_transformers import Html2TextTransformer
 
 
 def format_messages(state: State):
-    system_prompt = """You are useful cryptocurrency wallet assistant.
-    """
+    from prompt_search import system_prompt
+
     system_template = SystemMessagePromptTemplate.from_template(system_prompt)
     system_message = system_template.format_messages()
     return system_message + state["messages"]

@@ -113,7 +113,7 @@ graph_builder = StateGraph(State)
 
 
 def format_messages(state: State):
-    from chatbot_prompt import system_prompt
+    from prompt_chatbot import system_prompt
 
     system_template = SystemMessagePromptTemplate.from_template(system_prompt)
     system_message = system_template.format_messages(

@@ -476,9 +476,20 @@ export function ChatWindow(props: { conversationId: string }) {
 				},
 			});
 			const llmDisplayName = llm ?? "openai_gpt_3_5_turbo";
+			let messages: any;
+			if (currentImages && currentImages.length > 0) {
+				messages = [{ "type": "human", "content": [{ "type": "text", "text": messageValue }] }];
+				let _content = messages[0].content;
+				for (const url of currentImages) {
+					_content.push({ "type": "image_url", "image_url": { "url": url } })
+				}
+				messages[0].content = _content;
+			} else {
+				messages = [{ "type": "human", "content": messageValue }]
+			}
 			let streams = await remoteChain.stream(
 				{
-					messages: [{ "type": "human", "content": messageValue }],
+					messages: messages,
 					wallet_address: address ? address : "",
 					chain_id: chainId ? chainId.toString() : "-1",
 					wallet_is_connected: isConnected,

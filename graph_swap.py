@@ -46,6 +46,8 @@ from langgraph.utils.runnable import RunnableCallable
 
 
 def format_messages(state: SwapGraphState):
+    from prompt_swap import system_prompt
+
     system_template = SystemMessagePromptTemplate.from_template(system_prompt)
     system_message = system_template.format_messages(
         wallet_is_connected=state["wallet_is_connected"],

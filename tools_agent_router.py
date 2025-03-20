@@ -13,7 +13,7 @@ def route_to_swap_agent():
         - Get transaction records using the Bridgers API.
         - Get detailed information about a specific transaction using the Bridgers API.
     """
-    return "Now requesting Swap Agent."
+    return "Now requesting a Cryptocurrency Swap Expert."
 
 
 @tool
@@ -39,7 +39,7 @@ def route_to_wallet_agent():
         - Generate transaction data for approving TRC20 token spending.
         - Get the approved amount of a TRC20 token for a specific spender.
     """
-    return "Now requesting Wallet Agent."
+    return "Now requesting a Cryptocurrency Wallet Expert"
 
 
 @tool
@@ -53,7 +53,7 @@ def route_to_search_agent():
         - Performs an image search using Google Images and returns raw search results.
         - Access the links content
     """
-    return "Now requesting Search Agent."
+    return "Now requesting a Search Engine Expert."
 
 
 @tool
@@ -65,7 +65,17 @@ def route_to_cryptocurrency_quote_agent():
         - Retrieves detailed metadata and information about a cryptocurrency from CoinMarketCap API.
         - Analyzes trading signals for cryptocurrency pairs against USDT using TradingView technical analysis.
     """
-    return "Now requesting Cryptocurrency quote Agent."
+    return "Now requesting a Cryptocurrency Market Analysis Expert."
+
+
+@tool
+def route_to_image_agent():
+    """
+    This tool will hand over the question to a Text-to-Image Generation Expert.
+    Expert capabilities include:
+        - Generate images and return markdown format image links of generated images, separated by newlines.
+    """
+    return "Now requesting a Text-to-Image Generation Expert."
 
 
 @tool
@@ -83,6 +93,7 @@ from graph_swap import graph as swap_graph
 from graph_wallet import graph as wallet_graph
 from graph_search import graph as search_webpage_graph
 from graph_quote import graph as quote_graph
+from graph_image import graph as image_graph
 
 
 def get_next_node(tool_name: str):
@@ -94,6 +105,8 @@ def get_next_node(tool_name: str):
         return search_webpage_graph.get_name()
     elif tool_name == route_to_cryptocurrency_quote_agent.get_name():
         return quote_graph.get_name()
+    elif tool_name == route_to_image_agent.get_name():
+        return image_graph.get_name()
     else:
         return None
 
@@ -104,4 +117,5 @@ tools = [
     route_to_wallet_agent,
     route_to_search_agent,
     route_to_cryptocurrency_quote_agent,
+    route_to_image_agent,
 ]

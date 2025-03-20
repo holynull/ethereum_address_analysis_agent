@@ -15,11 +15,11 @@ s3_client = boto3.client("s3")
 def gen_images(
     prompt: str,
     negative_prompt: str,
-    add_watermark:bool=False,
+    add_watermark: bool = False,
     aspect_ratio: str = "1:1",
     guidance_scale: float = None,
 ):
-    """Generate images and return markdown format image links of generated images, separated by newlines.
+    """Generate images.
 
     Args:
         prompt (str): The prompt text to generate image.
@@ -38,7 +38,7 @@ def gen_images(
             * 21+ (high strength)
 
     Returns:
-        str: Markdown format image links of generated images, separated by newlines
+       list[str]: Urls of image 
     """
     if prompt is None or prompt == "":
         return "Error:prompt is required."
@@ -73,7 +73,8 @@ def gen_images(
         os.remove(temp_filename)
 
         # s3_url = f"![Generated Image {i+1}](https://musse.ai/{s3_key})"
-        s3_url = f"\n<img src='https://musse.ai/{s3_key}'>"
+        # s3_url = f"\n<img src='https://musse.ai/{s3_key}'>"
+        s3_url = f"\nhttps://musse.ai/{s3_key}"
         result_urls.append(s3_url)
 
     return result_urls

@@ -31,6 +31,7 @@ from graph_swap import graph as swap_graph
 from graph_wallet import graph as wallet_graph
 from graph_search import graph as search_webpage_graph
 from graph_quote import graph as quote_graph
+from graph_image import graph as image_graph
 
 llm = ChatAnthropic(
     model="claude-3-5-sonnet-20241022",
@@ -202,6 +203,7 @@ graph_builder.add_node(swap_graph.get_name(), swap_graph)
 graph_builder.add_node(wallet_graph.get_name(), wallet_graph)
 graph_builder.add_node(search_webpage_graph.get_name(), search_webpage_graph)
 graph_builder.add_node(quote_graph.get_name(), quote_graph)
+graph_builder.add_node(image_graph)
 
 graph_builder.add_node(router_tools.get_name(), router_tools)
 graph_builder.add_edge(START, node_llm.get_name())
@@ -215,4 +217,5 @@ graph_builder.add_edge(swap_graph.get_name(), node_llm.get_name())
 graph_builder.add_edge(wallet_graph.get_name(), node_llm.get_name())
 graph_builder.add_edge(search_webpage_graph.get_name(), node_llm.get_name())
 graph_builder.add_edge(quote_graph.get_name(), node_llm.get_name())
+graph_builder.add_edge(image_graph.get_name(), node_llm.get_name())
 graph = graph_builder.compile()

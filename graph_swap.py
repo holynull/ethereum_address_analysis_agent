@@ -20,8 +20,6 @@ _llm = ChatAnthropic(
     verbose=True,
 )
 
-from system_prompt_9_swap import system_prompt
-
 
 class SwapGraphState(TypedDict):
     # Messages have the type "list". The `add_messages` function
